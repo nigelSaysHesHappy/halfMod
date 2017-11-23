@@ -46,6 +46,9 @@ Once installed, to launch, from the top directory run the `server.sh` script.
 You can set the server to auto restart in the event of a crash by providing the `--auto-restart` command line switch.
 
 All `server.sh` command line options:
+
+`--auto-restart` Setup halfShell to automatically restart if Minecraft or halfShell crashes or stops for any reason.
+
 `--mc-ver=VERSION` Define the version of Minecraft to launch. (Sets the jar file to `minecraft_server.VERSION.jar`. Default is `1.12.2`)
 
 `--world=WORLD` Change the world directory for Minecraft. If not supplied, uses the definition from `server.properties`.
@@ -60,6 +63,7 @@ Any additional switches will be passed as switches to halfMod.
 
 
 All `halfmod_engine` command line options:
+
 `--version` Does not start halfMod, instead prints version info.
 
 `--verbose` Print more output in the halfMod console.
