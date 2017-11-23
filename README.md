@@ -40,6 +40,8 @@ Installation is very easy. Clone the rep and type the following commands into th
 cd src/
 ./buildall --plugins
 ```
+
+# Running
 Once installed, to launch, from the top directory run the `server.sh` script.
 You can set the server to auto restart in the event of a crash by providing the `--auto-restart` command line switch.
 
