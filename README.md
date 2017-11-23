@@ -1,6 +1,3 @@
-# halfMod
-halfShell + halfMod = The Vanilla Minecraft Mod Loader
-
 # halfShell
 halfShell is the real "mod loader". It works behind the scenes to communicate between Minecraft and mods. halfMod is the bundled mod with this package, but you can also create your own mods and connect them to halfShell as well.
 
