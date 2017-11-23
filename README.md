@@ -79,3 +79,46 @@ All `halfmod_engine` command line options:
 `--log-op` Set halfMod to log oper status grants/removals.
 
 `--log-whitelist` Set halfMod to log whitelist changes.
+
+# Adding Admins
+The file `./halfMod/config/admins.conf` contains the admin definitions.
+
+Example file:
+```
+# halfMod admin config file
+# Valid flags are lowercase letters a-z
+# Example:
+# nigel = abc
+
+MrPoopyButthole = abcefghikmoqrstuvwxy
+nigel = z
+```
+Full list of flags:
+```
+FLAG_ADMIN        (a) =   Generic admin
+FLAG_BAN          (b) =   Can ban/unban
+FLAG_CHAT         (c) =   Special chat access
+FLAG_CUSTOM1      (d) =   Custom1
+FLAG_EFFECT       (e) =   Grant/revoke effects
+FLAG_CONFIG       (f) =   Execute server config files
+FLAG_CHANGEWORLD  (g) =   Can change world
+FLAG_CVAR         (h) =   Can change gamerules and plugin variables
+FLAG_INVENTORY    (i) =   Can access inventory commands
+FLAG_CUSTOM2      (j) =   Custom2
+FLAG_KICK         (k) =   Can kick players
+FLAG_CUSTOM3      (l) =   Custom3
+FLAG_GAMEMODE     (m) =   Can change players' gamemode
+FLAG_CUSTOM4      (n) =   Custom4
+FLAG_OPER         (o) =   Grant/revoke operator status
+FLAG_CUSTOM5      (p) =   Custom5
+FLAG_RSVP         (q) =   Reserved slot access
+FLAG_RCON         (r) =   Access to server RCON
+FLAG_SLAY         (s) =   Slay/harm players
+FLAG_TIME         (t) =   Can modify the world time
+FLAG_UNBAN        (u) =   Can unban, but not ban
+FLAG_VOTE         (v) =   Can initiate votes
+FLAG_WHITELIST    (w) =   Access to whitelist commands
+FLAG_CHEATS       (x) =   Commands like give, xp, enchant, etc...
+FLAG_WEATHER      (y) =   Can change the weather
+FLAG_ROOT         (z) =   Magic flag which grants all flags
+```
