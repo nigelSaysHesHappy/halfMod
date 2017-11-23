@@ -1,3 +1,6 @@
+# About
+halfShell and halfMod together create a whole new Minecraft server environment. From adding moderators and admins in vanilla, to very non-vanilla abilities like full game changing mechanics. All possible without any modification to the minecraft server jar file. Currently, the only version of Minecraft that is supported is `1.12.2`, but soon all versions will be supported out of box. In theory, as long as the plugins know which version is running, and are created with support for said version, any version can be used right now. However, the included plugins are only written for version `1.12.2`.
+
 # halfShell
 halfShell is the real "mod loader". It works behind the scenes to communicate between Minecraft and mods. halfMod is the bundled mod with this package, but you can also create your own mods and connect them to halfShell as well.
 
