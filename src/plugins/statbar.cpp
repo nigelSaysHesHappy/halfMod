@@ -12,7 +12,7 @@
 #include <sys/vtimes.h>
 using namespace std;
 
-#define VERSION "v0.0.7"
+#define VERSION "v0.0.8"
 
 static clock_t lastCPU, lastSysCPU, lastUserCPU;
 static int numProcessors;
@@ -209,7 +209,7 @@ int comStatBar(hmHandle &handle, string client, string args[], int argc)
         hmReplyToClient(client,"Usage: " + args[0] + " removestat <totalmemory|usedmemory|freememory|halfmodmemory|minecraftmemory|totalcpu|halfmodcpu|minecraftcpu|uptime>");
         return 1;
     }
-    int STATS[] = {1,2,4,8,16,32,64,128,256};
+    static int STATS[] = {1,2,4,8,16,32,64,128,256};
     args[1] == lower(args[1]);
     if (args[1] == "on")
     {
@@ -281,12 +281,12 @@ int comStatBar(hmHandle &handle, string client, string args[], int argc)
                     displayStats = STATS[i];
             int stat = displayStats;
             if (displayStats == 256) stat = 9;
-            if (displayStats == 128) stat = 8;
-            if (displayStats == 64) stat = 7;
-            if (displayStats == 32) stat = 6;
-            if (displayStats == 16) stat = 5;
-            if (displayStats == 8) stat = 4;
-            if (displayStats == 4) stat = 3;
+            else if (displayStats == 128) stat = 8;
+            else if (displayStats == 64) stat = 7;
+            else if (displayStats == 32) stat = 6;
+            else if (displayStats == 16) stat = 5;
+            else if (displayStats == 8) stat = 4;
+            else if (displayStats == 4) stat = 3;
             hmSendRaw("scoreboard objectives remove hmStatBar\nscoreboard objectives add hmStatBar dummy " + gettok("Total Memory|Used Memory %|Free Memory %|halfMod Memory % (Used)|Minecraft Memory % (Used)|Total CPU Utilization|halfMod CPU Utilization|Minecraft CPU Utilization|Server Uptime",stat,"|"));
             if (enabled)
                 hmSendRaw("scoreboard objectives setdisplay " + displaySlot + " hmStatBar");
