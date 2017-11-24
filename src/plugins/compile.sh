@@ -6,9 +6,9 @@ fi
 
 if [ ! -d ../../halfMod ]; then
     mkdir ../../halfMod
-    if [ ! -d ../../halfMod/plugins ]; then
-        mkdir ../../halfMod/plugins
-    fi
+fi
+if [ ! -d ../../halfMod/plugins ]; then
+    mkdir ../../halfMod/plugins
 fi
 
 if [[ "$1" == "--install" ]]; then
