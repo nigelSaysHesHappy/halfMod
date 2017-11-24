@@ -4,6 +4,13 @@ if [ ! -d compiled ]; then
 	mkdir compiled
 fi
 
+if [ ! -d ../../halfMod ]; then
+    mkdir ../../halfMod
+    if [ ! -d ../../halfMod/plugins ]; then
+        mkdir ../../halfMod/plugins
+    fi
+fi
+
 if [[ "$1" == "--install" ]]; then
 	switchInstall=1
 	shift 1
