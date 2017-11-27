@@ -494,7 +494,7 @@ void hmLog(string data, int logType, string logFile)
 {
 	hmGlobal *global;
 	global = recallGlobal(global);
-	if (global->logMethod & logType)
+	if ((global->logMethod & logType) || (logType == LOG_ALWAYS))
 	{
 		ofstream file ("./halfMod/logs/" + logFile, ios_base::out|ios_base::app);
 		if (file.is_open())
