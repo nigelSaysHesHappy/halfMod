@@ -78,6 +78,7 @@
 #define LOG_BAN             2
 #define LOG_OP              4
 #define LOG_WHITELIST       8
+#define LOG_ALWAYS          16
 
 #define FILTER_NAME         1
 #define FILTER_NO_SELECTOR  2
