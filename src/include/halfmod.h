@@ -2,6 +2,8 @@
 #define halfmod
 
 #include <vector>
+#include <regex>
+#include <string>
 #include ".hmAPIBuild.h"
 
 #define HM_ONAUTH           1
