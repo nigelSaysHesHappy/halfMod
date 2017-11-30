@@ -11,6 +11,28 @@
 #include "halfmod.h"
 using namespace std;
 
+int mcVerInt(string version)
+{
+    static string oldVer = version;
+    static int verInt = 0;
+    if ((oldVer != version) || (verInt == 0))
+    {
+        oldVer = version;
+        verInt = 0;
+        int p = 7;
+        if (oldVer.find("w") != string::npos)
+            // 17w47b = 17000000 + 4700 + 2 = 17004702
+            // 17w48a = 17000000 + 4800 + 1 = 17004801
+            verInt = (stoi(gettok(oldVer,1,"w"))*1000000) + (stoi(gettok(oldVer,2,"w").substr(0,oldVer.size()-1))*1000) + (int(oldVer.at(oldVer.size()-1)-96));
+        else for (int i = 1, j = numtok(oldVer,".");i <= j;i++)
+            // 1.12.2 = 100000 + 12000 + 20 = 112020
+            // 1.13   = 100000 + 13000 +  0 = 113000
+            verInt += stoi(gettok(oldVer,i,".") + strrep("0",p-(i*2)));
+    }
+    return verInt;
+}
+// if ((mcVerInt(global->mcVer) > 17000000) || (mcVerInt(global->mcVer) >= 113000)) // use 1.13 commands.
+
 void mkdirIf(const char *path)
 {
 	struct stat dir;
@@ -307,7 +329,7 @@ hmGlobal *recallGlobal(hmGlobal *global)
 
 void hmSendRaw(string raw, bool output)
 {
-	hmGlobal *global;
+    hmGlobal *global;
 	int socket = recallGlobal(global)->hsSocket;
 	if (socket)
 	{
@@ -322,16 +344,33 @@ void hmSendRaw(string raw, bool output)
 
 void hmReplyToClient(string client, string message)
 {
+    hmGlobal *global;
+	int ver = mcVerInt(recallGlobal(global)->mcVer);
+	string com = "tellraw ", pre = " [\"[HM] ", suf = "\"]";
+	if ((ver <= 13003700) || (ver < 107020))
+	{
+	    com = "tell ";
+	    pre = " [HM] ";
+	    suf = "";
+    }
 	if ((client == "") || (client == "0") || (client == "#SERVER"))
 		cout<<"[HM] "<<message<<endl;
 	else
-		hmSendRaw("tellraw " + stripFormat(client) + " [\"[HM] " + message + "\"]",false);
+		hmSendRaw(com + stripFormat(client) + pre + message + suf,false);
 }
 
 void hmSendCommandFeedback(string client, string message)
 {
 	hmGlobal *global;
 	global = recallGlobal(global);
+	int ver = mcVerInt(global->mcVer);
+	string com = "tellraw ", pre = " [\"[HM] ", suf = "\"]";
+	if ((ver <= 13003700) || (ver < 107020))
+	{
+	    com = "tell ";
+	    pre = " [HM] ";
+	    suf = "";
+    }
 	cout<<"[HM] " + client + ": " + message<<endl;
 	if (global->hsSocket)
 	{
@@ -340,11 +379,11 @@ void hmSendCommandFeedback(string client, string message)
 		{
 			strippedTarget = stripFormat(lower(it->name));
 			if (strippedTarget == strippedClient)
-				hmSendRaw("tellraw " + strippedClient + " [\"[HM] " + message + "\"]",false);
+				hmSendRaw(com + strippedClient + pre + message + suf,false);
 			else if (it->flags & FLAG_ADMIN)
-				hmSendRaw("tellraw " + strippedTarget + " [\"[HM] " + client + ": " + message + "\"]",false);
+				hmSendRaw(com + strippedTarget + pre + client + ": " + message + suf,false);
 			else
-				hmSendRaw("tellraw " + strippedTarget + " [\"[HM] ADMIN: " + message + "\"]",false);
+				hmSendRaw(com + strippedTarget + pre + "ADMIN: " + message + suf,false);
 		}
 	}
 	else
@@ -353,8 +392,13 @@ void hmSendCommandFeedback(string client, string message)
 
 void hmSendMessageAll(string message)
 {
+    hmGlobal *global;
+	int ver = mcVerInt(recallGlobal(global)->mcVer);
 	cout<<"[HM] " + message<<endl;
-	hmSendRaw("tellraw @a [\"[HM] " + message + "\"]",false);
+	if ((ver > 13003700) || (ver >= 107020))
+    	hmSendRaw("tellraw @a [\"[HM] " + message + "\"]",false);
+	else
+	    hmSendRaw("say [HM] " + message,false);
 }
 
 bool hmIsPlayerOnline(string client)
