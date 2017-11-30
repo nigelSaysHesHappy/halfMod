@@ -128,7 +128,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
                             if (processCmd(info,plugins,filters,"hm_" + ml[2].str(),ml[1],ml[3]))
                                 return 1;
                     }
-                    else if (processEvent(plugins,HM_ONTEXT,ml1))
+                    if (processEvent(plugins,HM_ONTEXT,ml1))
                         return 1;
                 }
                 else if (processEvent(plugins,HM_ONFAKETEXT,ml))
@@ -967,7 +967,7 @@ int internalCredits(hmGlobal &global, string caller)
 {
 	hmReplyToClient(caller,string(VERSION) + " written by nigel.");
 	hmReplyToClient(caller,global.hsVer + ", the vanilla Minecraft ModLoader written by nigel.");
-	hmReplyToClient(caller,"Many thanks to SaintNewts and OSX for conceptual and technical advise.");
+	hmReplyToClient(caller,"Many thanks to SaintNewts and OSX for conceptual and technical advice.");
 	hmReplyToClient(caller,"To highlight a few of the things making halfMod possible:");
 	hmReplyToClient(caller,"SaintNewts: Running Minecraft in line buffered mode, allowing an instant file-less pipe directly into halfShell.");
 	hmReplyToClient(caller,"OSX: Using dlfcn.h to dynamically load shared libraries, allowing the halfMod API to load and handle C++ plugins.");
