@@ -128,3 +128,5 @@ FLAG_CHEATS       (x) =   Commands like give, xp, enchant, etc...
 FLAG_WEATHER      (y) =   Can change the weather
 FLAG_ROOT         (z) =   Magic flag which grants all flags
 ```
+
+# More info on everything can be found on the [wiki](https://github.com/nigelSaysHesHappy/halfMod/wiki)
