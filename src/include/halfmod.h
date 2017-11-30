@@ -266,6 +266,7 @@ class hmHandle
         std::string pluginName;
 };
 
+int mcVerInt(std::string version);
 void mkdirIf(const char *path);
 std::string stripFormat(std::string str);
 hmGlobal *recallGlobal(hmGlobal *global);
