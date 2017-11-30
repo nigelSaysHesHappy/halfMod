@@ -31,7 +31,6 @@ int mcVerInt(string version)
     }
     return verInt;
 }
-// if ((mcVerInt(global->mcVer) > 17000000) || (mcVerInt(global->mcVer) >= 113000)) // use 1.13 commands.
 
 void mkdirIf(const char *path)
 {
@@ -347,7 +346,7 @@ void hmReplyToClient(string client, string message)
     hmGlobal *global;
 	int ver = mcVerInt(recallGlobal(global)->mcVer);
 	string com = "tellraw ", pre = " [\"[HM] ", suf = "\"]";
-	if ((ver <= 13003700) || (ver < 107020))
+	if (((ver <= 13003700) && (ver > 1000000)) || (ver < 107020))
 	{
 	    com = "tell ";
 	    pre = " [HM] ";
@@ -365,7 +364,7 @@ void hmSendCommandFeedback(string client, string message)
 	global = recallGlobal(global);
 	int ver = mcVerInt(global->mcVer);
 	string com = "tellraw ", pre = " [\"[HM] ", suf = "\"]";
-	if ((ver <= 13003700) || (ver < 107020))
+	if (((ver <= 13003700) && (ver > 1000000)) || (ver < 107020))
 	{
 	    com = "tell ";
 	    pre = " [HM] ";
@@ -395,7 +394,7 @@ void hmSendMessageAll(string message)
     hmGlobal *global;
 	int ver = mcVerInt(recallGlobal(global)->mcVer);
 	cout<<"[HM] " + message<<endl;
-	if ((ver > 13003700) || (ver >= 107020))
+	if ((ver > 13003700) || ((ver >= 107020) && (ver < 1000000)))
     	hmSendRaw("tellraw @a [\"[HM] " + message + "\"]",false);
 	else
 	    hmSendRaw("say [HM] " + message,false);
