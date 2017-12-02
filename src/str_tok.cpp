@@ -250,7 +250,9 @@ int isin(string text, string subtext, int pos)
 */
 string strremove(string text, string subtext)
 {
-    while (text.find(subtext) != string::npos) text.erase(text.find(subtext),subtext.size());
+    size_t i;
+    while ((i = text.find(subtext)) != string::npos)
+        text.erase(i,subtext.size());
     return text;
 }
 
@@ -261,7 +263,7 @@ string getqtok(string tokens, int tok, string delim)
      if (tok < 0) tok = c+tok+1;
      //while (ret.size() < 1)
      //{
-         for (int a = 0; a < int(tokens.size()); a++)
+         for (size_t a = 0; a < tokens.size(); a++)
          {
              if (tokens.compare(a,1,"\"") == 0)
              {
@@ -306,7 +308,7 @@ bool iswm(string text, string subtext)
         r = 0;
         if (y == 1 && subtext.compare(0,1,"*") != 0 && a == -1)
         {
-              for (int s = 0; s < int(str.size())*-1; s--)
+              for (size_t s = 0; s < str.size()*-1; s--)
               {
                   if (text.compare(s,1,str,s,1) != 0)
                   {
@@ -438,17 +440,32 @@ string upper(string text)
     return ret;
 }
 */
-string upper(string text)
+/*string upper(string text)
 {
     for (int i = 0, j = int(text.size()); i < j; i++) text[i] = toupper(text[i]);
     return text;
+}*/
+
+string upper(string text)
+{
+    if (text.size() > 0)
+        for (string::iterator it = text.begin(), ite = text.end();it != ite;++it)
+            *it = toupper(*it);
+    return text;
+}
+string lower(string text)
+{
+    if (text.size() > 0)
+        for (string::iterator it = text.begin(), ite = text.end();it != ite;++it)
+            *it = tolower(*it);
+    return text;
 }
 
-string lower(string text)
+/*string lower(string text)
 {
     for (int i = 0, j = int(text.size()); i < j; i++) text[i] = tolower(text[i]);
     return text;
-}
+}*/
 
 /*
 string lower(string text)
@@ -752,19 +769,19 @@ string readloadedini(fstream &file, string section, string item, int n)
        **                                               Contact: nigathan@justca.me                                                **
        *****************************************************************************************************************************/
     
-    section = lower(section);
+    if ((!file.is_open()) || (file.fail())) return "";
+    section = "[" + lower(section) + "]";
     item = lower(item);
     string line, ret;
     int m = 0, i = 0, c = -1, t = 0;
-    if ((!file.is_open()) || (file.fail())) return "";
     file.seekg(0,ios::beg);
     file.clear();
     while (!file.eof())
     {
         getline(file,line);
-        if ((line.size() < 1) || (((int)line[0] == 13) && (line.size() == 1))) continue;
-        if (((int)line[line.size()-1] == 13) || ((int)line[line.size()-1] == 10)) line.erase(line.size()-1);
-        if ((line.substr(0,1) == "[") && (line.substr(line.size()-1,1) == "]")) i++;
+        if (line.size() < 2) continue;
+        //if ((int(*line.back()) == 13) || (int(*line.back()) == 10)) line.erase(line.size()-1);
+        if ((*line.front() == '[') && (*line.back() == ']')) i++;
         if (c == i)
         {
             t = line.find('=',0);
@@ -772,13 +789,13 @@ string readloadedini(fstream &file, string section, string item, int n)
             {
                 if (m == n)
                 {
-                    ret = line.erase(0,t+1);
+                    ret.assign(line,t+2,string::npos);
                     break;
                 }
                 m++;
             }
         }
-        if ((line[0] == '[') && (line[line.size()-1] == ']') && (lower(line.substr(1,line.size()-2)) == section)) c = i;
+        if (lower(line).compare(section) == 0) c = i;
     }
     return ret;
 }
