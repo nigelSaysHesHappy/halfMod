@@ -21,12 +21,8 @@ int mcVerInt(string version)
         verInt = 0;
         int p = 7;
         if (oldVer.find("w") != string::npos)
-            // 17w47b = 17000000 + 4700 + 2 = 17004702
-            // 17w48a = 17000000 + 4800 + 1 = 17004801
             verInt = (stoi(gettok(oldVer,1,"w"))*1000000) + (stoi(gettok(oldVer,2,"w").substr(0,oldVer.size()-1))*1000) + (int(oldVer.at(oldVer.size()-1)-96));
         else for (int i = 1, j = numtok(oldVer,".");i <= j;i++)
-            // 1.12.2 = 100000 + 12000 + 20 = 112020
-            // 1.13   = 100000 + 13000 +  0 = 113000
             verInt += stoi(gettok(oldVer,i,".") + strrep("0",p-(i*2)));
     }
     return verInt;
@@ -352,10 +348,10 @@ void hmReplyToClient(string client, string message)
 	    pre = " [HM] ";
 	    suf = "";
     }
+    else
+		hmSendRaw(com + stripFormat(client) + pre + message + suf,false);
 	if ((client == "") || (client == "0") || (client == "#SERVER"))
 		cout<<"[HM] "<<message<<endl;
-	else
-		hmSendRaw(com + stripFormat(client) + pre + message + suf,false);
 }
 
 void hmSendCommandFeedback(string client, string message)
