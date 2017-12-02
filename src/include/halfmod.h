@@ -160,9 +160,9 @@ struct hmGlobal
     std::string hsVer;
     std::string world;
     std::string mcScreen;
-    bool quiet;
-    bool verbose;
-    bool debug;
+    bool quiet = false;
+    bool verbose = false;
+    bool debug = false;
     int hsSocket;
     int logMethod;
     int maxPlayers;
