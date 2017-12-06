@@ -75,6 +75,33 @@ int findPlugins(const char *dir, vector<string> &paths)
 	return paths.size();
 }
 
+int writePlayerDat(string client, string data, string ignore, bool ifNotPresent)
+{
+    string filename = "./halfMod/userdata/" + stripFormat(lower(client)) + ".dat";
+    fstream file (filename,ios_base::in);
+    string line, lines = data;
+    if (file.is_open())
+    {
+        while (getline(file,line))
+        {
+            if ((ifNotPresent) && (line == data))
+                return 0;
+            if (!istok(ignore,gettok(line,1,"=")," "))
+                lines = lines + "\n" + line;
+        }
+        file.close();
+    }
+    file.open(filename,ios_base::out|ios_base::trunc);
+    if (file.is_open())
+    {
+        file<<lines;
+        file.close();
+    }
+    else
+        return 1;
+    return 0;
+}
+
 // in charge of populating the hmGlobal struct and controlling console output
 // I said f it and made it handle everything.
 int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFilter> &filters, string thread)
@@ -106,26 +133,26 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
     smatch ml;
     if (regex_match(thread,ml,ptrn))
     {
-        thread = ml[1];
+        thread = ml[1].str();
         ptrn = "\\[Server thread/INFO\\]: (.*)";
         if (regex_match(thread,ml,ptrn))
         {
             if (processEvent(plugins,HM_ONINFO,ml))
                 return 1;
-            thread = ml[1];
+            thread = ml[1].str();
             ptrn = "[^\\s\\[\\]<>]+ did not match.*";
             if (regex_match(thread,ptrn))
                 return 0;
             ptrn = "<(\\S+?)> (.*)";
             if (regex_match(thread,ml,ptrn))
             {
-                if (hmIsPlayerOnline(ml[1]))
+                if (hmIsPlayerOnline(ml[1].str()))
                 {
                     smatch ml1 = ml;
                     ptrn = "<(\\S+?)> !(\\S+) ?(.*)";
                     if (regex_match(thread,ml,ptrn))
                     {
-                            if (processCmd(info,plugins,filters,"hm_" + ml[2].str(),ml[1],ml[3]))
+                            if (processCmd(info,plugins,filters,"hm_" + ml[2].str(),ml[1].str(),ml[3].str()))
                                 return 1;
                     }
                     if (processEvent(plugins,HM_ONTEXT,ml1))
@@ -155,25 +182,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
                         ptrn = "([^\\s\\[]+)\\[/([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}):([0-9]{1,})\\] logged in.*";
                         if (regex_match(thread,ml,ptrn))
                         {
-                            fstream file ("./halfMod/userdata/" + stripFormat(lower(ml[1])) + ".dat",ios_base::in);
-						    string line, lines;
-						    lines = addtok(lines,"ip=" + string(ml[2]),"\n");
-    					    lines = addtok(lines,data2str("join=%li",time(NULL)),"\n");
-						    if (file.is_open())
-						    {
-							    while (getline(file,line))
-							    {
-								    if (!istok("ip join",gettok(line,1,"=")," "))
-									    lines = addtok(lines,line,"\n");
-							    }
-							    file.close();
-						    }
-						    file.open("./halfMod/userdata/" + stripFormat(lower(ml[1])) + ".dat",ios_base::out|ios_base::trunc);
-						    if (file.is_open())
-						    {
-							    file<<lines;
-							    file.close();
-						    }
+						    writePlayerDat(ml[1].str(),"ip=" + ml[2].str() + "\n" + data2str("join=%li",time(NULL)),"ip join");
 						    if (processEvent(plugins,HM_ONCONNECT,ml))
                                 return 1;
                         }
@@ -182,14 +191,14 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
                             ptrn = "Starting minecraft server version (.+)";
                             if (regex_match(thread,ml,ptrn))
                             {
-                                info.mcVer = ml[1];
+                                info.mcVer = ml[1].str();
                                 info.players.clear();
                             }
                             else
                             {
                                 ptrn = "Preparing level (.+)";
                                 if (regex_match(thread,ml,ptrn))
-                                    info.world = ml[1];
+                                    info.world = ml[1].str();
                                 else
                                 {
                                     ptrn = "Done \\((.*)\\)!.*";
@@ -224,7 +233,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
 						                    ptrn = "(\\S+) joined the game";
 						                    if (regex_match(thread,ml,ptrn))
 						                    {
-						                        loadPlayerData(info,ml[1]);
+						                        loadPlayerData(info,ml[1].str());
 								                if (processEvent(plugins,HM_ONJOIN,ml))
 									                return 1;
 									        }
@@ -235,25 +244,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
 									                ptrn = "(\\S+) lost connection: (.*)";
 									                if (regex_match(thread,ml,ptrn))
 									                {
-									                    fstream file ("./halfMod/userdata/" + stripFormat(lower(ml[1])) + ".dat",ios_base::in);
-									                    string line, lines;
-									                    lines = addtok(lines,data2str("quit=%li",time(NULL)),"\n");
-									                    lines = addtok(lines,"quitmsg=" + string(ml[2]),"\n");
-									                    if (file.is_open())
-									                    {
-										                    while (getline(file,line))
-										                    {
-											                    if (!istok("quit quitmsg",gettok(line,1,"=")," "))
-												                    lines = addtok(lines,line,"\n");
-										                    }
-										                    file.close();
-									                    }
-									                    file.open("./halfMod/userdata/" + stripFormat(lower(ml[1])) + ".dat",ios_base::out|ios_base::trunc);
-									                    if (file.is_open())
-									                    {
-										                    file<<lines;
-										                    file.close();
-									                    }
+									                    writePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit quitmsg");
 									                    if (processEvent(plugins,HM_ONDISCONNECT,ml))
 										                    return 1;
 										            }
@@ -264,7 +255,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
 										                {
 										                    for (auto it = info.players.begin();it != info.players.end();)
 										                    {
-											                    if (stripFormat(lower(it->name)) == stripFormat(lower(ml[1])))
+											                    if (stripFormat(lower(it->name)) == stripFormat(lower(ml[1].str())))
 												                    info.players.erase(it);
 											                    else
 												                    ++it;
@@ -303,25 +294,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
 											                            {
 											                                string client = stripFormat(lower(ml[1].str())), msg = ml[2].str();
 											                                time_t cTime = time(NULL);
-											                                fstream file ("./halfMod/userdata/" + client + ".dat",ios_base::in);
-												                            string line, lines;
-												                            lines = addtok(lines,data2str("death=%li",cTime),"\n");
-												                            lines = addtok(lines,"deathmsg=" + msg,"\n");
-												                            if (file.is_open())
-												                            {
-													                            while (getline(file,line))
-													                            {
-														                            if (!istok("death deathmsg",gettok(line,1,"=")," "))
-															                            lines = addtok(lines,line,"\n");
-													                            }
-													                            file.close();
-												                            }
-												                            file.open("./halfMod/userdata/" + client + ".dat",ios_base::out|ios_base::trunc);
-												                            if (file.is_open())
-												                            {
-													                            file<<lines;
-													                            file.close();
-												                            }
+												                            writePlayerDat(client,data2str("death=%li",cTime) + "\ndeathmsg=" + msg,"death deathmsg");
 												                            for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
 												                            {
 												                                if (stripFormat(lower(it->name)) == client)
@@ -369,34 +342,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
                 ptrn = "\\[User Authenticator #([0-9]{1,})/INFO\\]: UUID of player (\\S+) is (.*)";
                 if (regex_match(thread,ml,ptrn))
                 {
-                    string client = stripFormat(lower(ml[2]));
-                    fstream file ("./halfMod/userdata/" + client + ".dat",ios_base::in);
-					string line, lines;
-					bool needWrite = true;
-					lines = "uuid=" + ml[3].str() + "\n";
-					if (file.is_open())
-					{
-						while (getline(file,line))
-						{
-							if (line == "uuid=" + ml[3].str())
-							{
-								needWrite = false;
-								break;
-							}
-							else if (gettok(line,1,"=") != "uuid")
-								lines = addtok(lines,line,"\n");
-						}
-						file.close();
-					}
-					if (needWrite)
-					{
-						file.open("./halfMod/userdata/" + client + ".dat",ios_base::out|ios_base::trunc);
-						if (file.is_open())
-						{
-							file<<lines;
-							file.close();
-						}
-					}
+                    writePlayerDat(ml[2].str(),"uuid=" + ml[3].str(),"uuid",true);
                     if (processEvent(plugins,HM_ONAUTH,ml))
                         return 1;
                 }
@@ -604,6 +550,8 @@ int hashConsoleFilters(vector<hmConsoleFilter> &filters, string path)
 		hmConsoleFilter temp;
 		while (getline(file,line))
 		{
+		    if (line.at(0) == '#')
+		        continue;
 			if (gettok(line,1," ") == "0")
 				temp.blocking = false;
 			else	temp.blocking = true;
