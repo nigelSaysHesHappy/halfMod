@@ -148,9 +148,9 @@ int numtok(string tokens, string delim)
 {
     if (tokens.size() == 0) return 0;
 	int y = 1;
-    for (int x = 0; x < int(tokens.size()); x++)
+    for (size_t x = 0; x < tokens.size(); x++)
     {
-        if ((tokens.compare(x,1,delim) == 0) && (tokens.compare(x+1,1,delim) != 0) && (x+1 < int(tokens.size()))) y++;
+        if ((tokens.compare(x,1,delim) == 0) && (tokens.compare(x+1,1,delim) != 0) && (x+1 < tokens.size())) y++;
     }
 	return y;
 }
@@ -162,7 +162,7 @@ string gettok(string tokens, int tok, string delim)
      if (tok < 0) tok = c+tok+1;
      //while (ret.size() < 1)
      //{
-         for (int a = 0; a < int(tokens.size()); a++)
+         for (size_t a = 0; a < tokens.size(); a++)
          {
              if (tokens.compare(a,z,delim) == 0) x++;
              if (x == tok) y = x;
@@ -781,7 +781,7 @@ string readloadedini(fstream &file, string section, string item, int n)
         getline(file,line);
         if (line.size() < 2) continue;
         //if ((int(*line.back()) == 13) || (int(*line.back()) == 10)) line.erase(line.size()-1);
-        if ((*line.front() == '[') && (*line.back() == ']')) i++;
+        if ((line.at(0) == '[') && (line.at(line.size()-1) == ']')) i++;
         if (c == i)
         {
             t = line.find('=',0);
