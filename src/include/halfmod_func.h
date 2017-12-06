@@ -18,6 +18,7 @@ void loadPlayerData(hmGlobal &info, string name);
 int hashAdmins(hmGlobal &info, string path);
 int hashConsoleFilters(vector<hmConsoleFilter> &filters, string path);
 
+int writePlayerDat(string client, string data, string ignore, bool ifNotPresent = false);
 int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFilter> &filters, string thread);
 int processFunc(hmHandle &plugin,int retVal);
 int processEvent(vector<hmHandle> &plugins, int event, smatch thread);
