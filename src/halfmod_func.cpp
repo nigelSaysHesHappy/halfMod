@@ -146,7 +146,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
             ptrn = "<(\\S+?)> (.*)";
             if (regex_match(thread,ml,ptrn))
             {
-                if (hmIsPlayerOnline(ml[1].str()))
+                if ((ml[1].str() == "#SERVER") || (hmIsPlayerOnline(ml[1].str())))
                 {
                     smatch ml1 = ml;
                     ptrn = "<(\\S+?)> !(\\S+) ?(.*)";
@@ -472,7 +472,10 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, vector<hmConsoleFilt
 		}
 		if ((console) && (internal != 1))
 		{
-			hmSendRaw(cmd + " " + args,false);
+		    if (args.size() > 0)
+    			hmSendRaw(cmd + " " + args,false);
+			else
+			    hmSendRaw(cmd,false);
 			ret = 1;
 		}
 	}
