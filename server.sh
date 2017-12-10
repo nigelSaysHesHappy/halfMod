@@ -50,9 +50,9 @@ echo "stdbuf -oL -eL java -Xms1024M -Xmx1024M -jar minecraft_server.${mcver}.jar
 echo "echo \"]:-:-:-:[###[THREAD COMPLETE]###]:-:-:-:[\"" >>launchmc
 echo "#!/bin/bash" >launchhs
 if $autorestart; then
-	echo "/bin/bash launchmc | { ./halfshell ${hsScreen} ${hsswitch}; ./server.sh $origswitch --restart; }" >>launchhs
+	echo "/bin/bash launchmc | { ./halfshell ${hsScreen} ${mcver} ${hsswitch}; ./server.sh $origswitch --restart; }" >>launchhs
 else
-	echo "/bin/bash launchmc | ./halfshell ${hsScreen} ${hsswitch}" >>launchhs
+	echo "/bin/bash launchmc | ./halfshell ${hsScreen} ${mcver} ${hsswitch}" >>launchhs
 fi
 
 if ! $restart; then
