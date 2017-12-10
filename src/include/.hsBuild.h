@@ -1,1 +1,1 @@
-#define VERSION "halfShell v0.2.42-build42"
+#define VERSION "halfShell v0.2.42-build55"
