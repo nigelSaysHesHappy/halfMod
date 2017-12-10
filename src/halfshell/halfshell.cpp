@@ -30,6 +30,14 @@ using namespace std;
 #define MAXCLIENTS	30
 #define MAXSCREENLEN	400
 
+#define MAX_INTERNAL        6
+#define INTERNAL_RELAY      0
+#define INTERNAL_RELAYTO    1
+#define INTERNAL_RELAYALL   2
+#define INTERNAL_WALL       3
+#define INTERNAL_LIST       4
+#define INTERNAL_VER        5
+
 int main(int argc , char *argv[])
 {
 	if (argc < 2)
@@ -55,6 +63,15 @@ int main(int argc , char *argv[])
 	ifstream rFile;
 	nigSock sockets[MAXCLIENTS];
 	string line, buffer, temp;
+	
+	const string internals[] = {
+	                            "relay",   // Relay a command back to the requesting mod as the server
+	                            "relayto", // Relay a command back to the Nth mod as the server
+	                            "relayall",// Relay a command back to all mods as the server
+    	                        "wall",    // Send a message to all mods, note: can be intercepted as a trigger by the mods
+    	                        "list",    // Replies to the requesting mod listing the currently connected mods
+    	                        ""         // Replies to the requesting mod with version info
+    	                       };
 	
 	//set of socket descriptors
 	fd_set readfds;//, stdinfds;
@@ -264,28 +281,140 @@ int main(int argc , char *argv[])
 						}
 						else
 						{
-						    //buffer = strreplace(buffer,"\"","\\\"") + "\r";
-						    //buffer = strreplace(strreplace(buffer,"$","\\$"),"^","\\^") + "\r";
-						    regex ptrn ("(\\\\+)?\\$");
-						    buffer = regex_replace(buffer,ptrn,"\\$");
-						    ptrn = "(\\\\+)?\\^";
-						    buffer = regex_replace(buffer,ptrn,"\\^");
-						    ptrn = "'";
-						    buffer = regex_replace(buffer,ptrn,"`");
-						    buffer += "\r";
-							valread = buffer.size();
-							for (int i = 0;i <= valread;i += MAXSCREENLEN)
-							{
-								temp = "screen -S " + screen + " -p 0 -X stuff '" + strmid(buffer,i,MAXSCREENLEN) + "'";
-								while (temp.at(temp.size()-2) == '\\')
-								{
-								    temp.erase(temp.size()-2,1);
-								    i--;
-								}
-								if (temp == "screen -S " + screen + " -p 0 -X stuff ''")
-								    i += MAXSCREENLEN;
-								system(temp.c_str());
-							}
+						    if (buffer.compare("hs") == 0)
+					        {
+                                // hs command with no params
+                                temp = "[HS] " + string(VERSION) + " is running Minecraft version \"" + mcver + "\" on screen \"" + screen + "\".\n";
+                                sockets[i].nWrite(temp);
+                                //buffer.clear();
+				            }
+				            else if (buffer.compare(0,3,"hs ") == 0)
+				            {
+				                // hs command with possible params
+				                temp = buffer.substr(3,buffer.find(" ",3,1)-3);
+				                int subcmd = 0;
+				                for (;subcmd < MAX_INTERNAL;subcmd++)
+				                    if (internals[subcmd] == temp)
+				                        break;
+		                        switch (subcmd)
+		                        {
+		                            case INTERNAL_RELAY:
+		                            {
+		                                if ((4 + internals[subcmd].size()) > buffer.size())
+		                                    sockets[i].nWrite("[HS] Usage: hs relay <command ...>\n");
+	                                    else
+	                                    {
+		                                    temp = "[99:99:99] [Server thread/INFO]: <#SERVER> !rcon " + buffer.substr(4 + internals[subcmd].size(),string::npos) + "\n";
+		                                    sockets[i].nWrite(temp);
+	                                    }
+		                                //buffer.clear();
+		                                break;
+	                                }
+	                                case INTERNAL_RELAYTO:
+		                            {
+		                                if ((4 + internals[subcmd].size()) > buffer.size())
+		                                {
+		                                    sockets[i].nWrite("[HS] Usage: hs relayto <N> <command ...>\n");
+		                                    break;
+	                                    }
+		                                temp = buffer.substr(4 + internals[subcmd].size(),buffer.find(" ",4 + internals[subcmd].size(),1)-(4 + internals[subcmd].size()));
+		                                if ((5 + internals[subcmd].size() + temp.size()) > buffer.size())
+		                                    sockets[i].nWrite("[HS] Usage: hs relayto <N> <command ...>\n");
+	                                    else
+	                                    {
+	                                        int sockTo = stoi(temp);
+	                                        if ((sockTo < 0) || (sockTo > MAXCLIENTS) || (sockets[sockTo].mark == ""))
+	                                            sockets[i].nWrite("[HS] Invalid mod: " + temp + "\n");
+	                                        else
+	                                        {
+		                                        temp = "[99:99:99] [Server thread/INFO]: <#SERVER> !rcon " + buffer.substr(5 + internals[subcmd].size() + temp.size(),string::npos) + "\n";
+		                                        sockets[sockTo].nWrite(temp);
+	                                        }
+                                        }
+		                                //buffer.clear();
+		                                break;
+	                                }
+	                                case INTERNAL_RELAYALL:
+		                            {
+		                                if ((4 + internals[subcmd].size()) > buffer.size())
+		                                {
+		                                    sockets[i].nWrite("[HS] Usage: hs relayall <command ...>\n");
+		                                    break;
+	                                    }
+	                                    else
+	                                    {
+	                                        temp = "[99:99:99] [Server thread/INFO]: <#SERVER> !rcon " + buffer.substr(4 + internals[subcmd].size(),string::npos) + "\n";
+	                                        for (int j = 0;j < MAXCLIENTS;j++)
+	                                            if (sockets[j].mark != "")
+        	                                        sockets[j].nWrite(temp);
+                                        }
+		                                //buffer.clear();
+		                                break;
+	                                }
+	                                case INTERNAL_WALL:
+	                                {
+	                                    if ((4 + internals[subcmd].size()) > buffer.size())
+		                                    sockets[i].nWrite("[HS] Usage: hs wall <message ...>\n");
+	                                    else
+	                                    {
+	                                        temp = "[HS] WALL <" + sockets[i].mark + "> " + buffer.substr(4 + internals[subcmd].size(),string::npos) + "\n";
+	                                        for (int j = 0;j < MAXCLIENTS;j++)
+	                                            if (sockets[j].mark != "")
+	                                                sockets[j].nWrite(temp);
+                                        }
+                                        //buffer.clear();
+	                                    break;
+                                    }
+                                    case INTERNAL_LIST:
+                                    {
+                                        temp = "[HS] All currently connected mods (" + to_string(connectedClients) + "/" + to_string(MAXCLIENTS) + "):\n";
+                                        for (int j = 0;j < MAXCLIENTS;j++)
+	                                        if (sockets[j].mark != "")
+	                                            temp = temp + "[HS] " + to_string(j) + ":\t" + sockets[j].mark + "\n";
+                                        sockets[i].nWrite(temp);
+                                        //buffer.clear();
+                                        break;
+                                    }
+                                    case INTERNAL_VER:
+                                    {
+                                        temp = "[HS] " + string(VERSION) + " is running Minecraft version \"" + mcver + "\" on screen \"" + screen + "\".\n";
+                                        sockets[i].nWrite(temp);
+                                        //buffer.clear();
+                                        break;
+                                    }
+                                    default:
+                                    {
+                                        temp = "[HS] Unknown command sequence: " + buffer + "\n";
+                                        sockets[i].nWrite(temp);
+                                        //buffer.clear();
+                                    }
+                                }
+			                }
+						    else
+						    {
+						        //buffer = strreplace(buffer,"\"","\\\"") + "\r";
+						        //buffer = strreplace(strreplace(buffer,"$","\\$"),"^","\\^") + "\r";
+						        regex ptrn ("(\\\\+)?\\$");
+						        buffer = regex_replace(buffer,ptrn,"\\$");
+						        ptrn = "(\\\\+)?\\^";
+						        buffer = regex_replace(buffer,ptrn,"\\^");
+						        ptrn = "'";
+						        buffer = regex_replace(buffer,ptrn,"`");
+       						    buffer += "\r";
+							    valread = buffer.size();
+							    for (int i = 0;i <= valread;i += MAXSCREENLEN)
+							    {
+								    temp = "screen -S " + screen + " -p 0 -X stuff '" + strmid(buffer,i,MAXSCREENLEN) + "'";
+								    while (temp.at(temp.size()-2) == '\\')
+								    {
+								        temp.erase(temp.size()-2,1);
+								        i--;
+								    }
+								    if (temp == "screen -S " + screen + " -p 0 -X stuff ''")
+								        i += MAXSCREENLEN;
+								    system(temp.c_str());
+							    }
+						    }
 						}
 					}
 				}
