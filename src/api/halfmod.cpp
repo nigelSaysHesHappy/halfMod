@@ -63,6 +63,16 @@ void hmHandle::unload()
 		*(void **) (&end) = dlsym(module, HM_ONPLUGINEND_FUNC);
 		if (dlerror() == NULL)
 			(*end)(*this);
+		hmGlobal *global;
+		global = recallGlobal(global);
+		for (auto it = global->pluginList.begin(), ite = global->pluginList.end();it != ite;++it)
+		{
+		    if (it->path == modulePath)
+		    {
+		        global->pluginList.erase(it);
+		        break;
+	        }
+        }
 		loaded = false;
 		dlclose(module);
 	}
@@ -85,9 +95,11 @@ bool hmHandle::load(string pluginPath, hmGlobal *global)
 				fputs(error, stderr);
 			else
 			{
+    			API_VER = API_VERSION;
 				(*start)(*this,global);
-				loaded = true;
 				pluginName = deltok(deltok(deltok(deltok(modulePath,1,"/"),1,"/"),1,"/"),-1,".");
+				global->pluginList.push_back({modulePath,pluginName,info.version});
+				loaded = true;
 				hookEvent(HM_ONCONNECT,HM_ONCONNECT_FUNC);
 				hookEvent(HM_ONAUTH,HM_ONAUTH_FUNC);
 				hookEvent(HM_ONJOIN,HM_ONJOIN_FUNC);
@@ -105,7 +117,8 @@ bool hmHandle::load(string pluginPath, hmGlobal *global)
 				hookEvent(HM_ONDEATH,HM_ONDEATH_FUNC);
 				hookEvent(HM_ONWORLDINIT,HM_ONWORLDINIT_FUNC);
 				hookEvent(HM_ONHSCONNECT,HM_ONHSCONNECT_FUNC);
-				hookEvent(HM_ONHSDISCONNECT,HM_ONHSDISCONNECT_FUNC);
+				hookEvent(HM_ONHSDISCONNECT,HM_ONHSDISCONNECT_FUNC,false);
+				hookEvent(HM_ONSHUTDOWNPOST,HM_ONSHUTDOWNPOST_FUNC,false);
 			}
 		}
 	}
@@ -129,7 +142,6 @@ void hmHandle::pluginInfo(string name, string author, string description, string
 	info.description = description;
 	info.version = version;
 	info.url = url;
-	API_VER = API_VERSION;
 }
 
 hmInfo hmHandle::getInfo()
@@ -137,10 +149,13 @@ hmInfo hmHandle::getInfo()
 	return info;
 }
 
-int hmHandle::hookEvent(int event, string function)
+int hmHandle::hookEvent(int event, string function, bool withSmatch)
 {
 	hmEvent tmpEvent;
-	*(void **) (&tmpEvent.func) = dlsym(module, function.c_str());
+	if (withSmatch)
+	    *(void **) (&tmpEvent.func_with) = dlsym(module, function.c_str());
+    else
+        *(void **) (&tmpEvent.func) = dlsym(module, function.c_str());
 	if (dlerror() == NULL)
 	{
 		tmpEvent.event = event;
@@ -337,21 +352,30 @@ void hmSendRaw(string raw, bool output)
 		hmOutDebug("Error: No connection to the halfShell server . . .");
 }
 
+void hmServerCommand(string raw, bool output)
+{
+    if (raw.size() > 0)
+        hmSendRaw("hs relay " + raw,output);
+}
+
 void hmReplyToClient(string client, string message)
 {
-    hmGlobal *global;
-	int ver = mcVerInt(recallGlobal(global)->mcVer);
-	string com = "tellraw ", pre = " [\"[HM] ", suf = "\"]";
-	if (((ver <= 13003700) && (ver > 1000000)) || (ver < 107020))
-	{
-	    com = "tell ";
-	    pre = " [HM] ";
-	    suf = "";
-    }
-    else
-		hmSendRaw(com + stripFormat(client) + pre + message + suf,false);
-	if ((client == "") || (client == "0") || (client == "#SERVER"))
+    if ((client == "") || (client == "0") || (client == "#SERVER"))
 		cout<<"[HM] "<<message<<endl;
+	else
+	{
+        hmGlobal *global;
+	    int ver = mcVerInt(recallGlobal(global)->mcVer);
+	    string com = "tellraw ", pre = " [\"[HM] ", suf = "\"]";
+	    if (((ver <= 13003700) && (ver > 1000000)) || (ver < 107020))
+	    {
+	        com = "tell ";
+	        pre = " [HM] ";
+	        suf = "";
+        }
+        else
+		    hmSendRaw(com + stripFormat(client) + pre + message + suf,false);
+    }
 }
 
 void hmSendCommandFeedback(string client, string message)
@@ -655,8 +679,35 @@ int hmProcessTargets(string client, string target, vector<hmPlayer> &targList, i
 	return targList.size();
 }
 
+bool hmIsPluginLoaded(string nameOrPath, string version)
+{
+    hmGlobal *global;
+    global = recallGlobal(global);
+    for (auto it = global->pluginList.begin(), ite = global->pluginList.end();it != ite;++it)
+    {
+        if ((nameOrPath == it->name) || (nameOrPath == it->path))
+        {
+            if (version.size() > 0)
+            {
+                if (version == it->version)
+                    return true;
+            }
+            else
+                return true;
+        }
+    }
+    return false;
+}
 
-
+string hmGetPluginVersion(string nameOrPath)
+{
+    hmGlobal *global;
+    global = recallGlobal(global);
+    for (auto it = global->pluginList.begin(), ite = global->pluginList.end();it != ite;++it)
+        if ((nameOrPath == it->name) || (nameOrPath == it->path))
+            return it->version;
+    return "";
+}
 
 
 
