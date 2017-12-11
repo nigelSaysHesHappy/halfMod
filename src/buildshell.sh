@@ -8,7 +8,7 @@ source ".hsBuildNo.sh"
 
 let "hsBuild++"
 echo "hsBuild=${hsBuild}">.hsBuildNo.sh
-echo "#define VERSION \"halfShell v0.2.42-build${hsBuild}\"">include/.hsBuild.h
+echo "#define VERSION \"halfShell v0.3.3-build${hsBuild}\"">include/.hsBuild.h
 
 g++ -std=c++11 -I "include" -o ../halfshell halfshell/halfshell.cpp o/nigsock.o o/str_tok.o -pthread
 
@@ -16,5 +16,5 @@ g++ -std=c++11 -I "include" -o ../halfshell halfshell/halfshell.cpp o/nigsock.o 
 if [[ $? != 0 ]]; then
 	let "hsBuild--"
 	echo "hsBuild=${hsBuild}">.hsBuildNo.sh
-	echo "#define VERSION \"halfShell v0.2.42-build${hsBuild}\"">include/.hsBuild.h
+	echo "#define VERSION \"halfShell v0.3.3-build${hsBuild}\"">include/.hsBuild.h
 fi

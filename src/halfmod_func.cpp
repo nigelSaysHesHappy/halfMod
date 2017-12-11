@@ -129,6 +129,8 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
 		cout<<thread<<endl;
     if (processHooks(plugins,thread))
         return 1;
+    if (thread == "]:-:-:-:[###[THREAD COMPLETE]###]:-:-:-:[")
+        return processEvent(plugins,HM_ONSHUTDOWNPOST);
     regex ptrn ("\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] (.+)");
     smatch ml;
     if (regex_match(thread,ml,ptrn))
@@ -352,6 +354,19 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
     return 0;
 }
 
+int processEvent(vector<hmHandle> &plugins, int event)
+{
+	hmEvent evnt;
+	for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
+	{
+		evnt = it->findEvent(event);
+		if (evnt.event > 0)
+			if ((*evnt.func)(*it))
+				return 1;
+	}
+	return 0;
+}
+
 int processEvent(vector<hmHandle> &plugins, int event, smatch thread)
 {
 	hmEvent evnt;
@@ -359,7 +374,7 @@ int processEvent(vector<hmHandle> &plugins, int event, smatch thread)
 	{
 		evnt = it->findEvent(event);
 		if (evnt.event > 0)
-			if ((*evnt.func)(*it,thread))
+			if ((*evnt.func_with)(*it,thread))
 				return 1;
 	}
 	return 0;

@@ -8,7 +8,7 @@ source ".hmEngineBuildNo.sh"
 
 let "hmEngineBuild++"
 echo "hmEngineBuild=${hmEngineBuild}">.hmEngineBuildNo.sh
-echo "#define VERSION \"halfMod v0.0.1-build${hmEngineBuild}\"">include/.hmEngineBuild.h
+echo "#define VERSION \"halfMod v0.1.0-build${hmEngineBuild}\"">include/.hmEngineBuild.h
 
 err=0
 
@@ -32,6 +32,6 @@ g++ -std=c++11 -I "include" -o ../halfmod_engine o/str_tok.o o/halfmod.o o/halfm
 if [[ $? != 0 ]]; then
 	let "hmEngineBuild--"
 	echo "hmEngineBuild=${hmEngineBuild}">.hmEngineBuildNo.sh
-	echo "#define VERSION \"halfMod v0.0.1-build${hmEngineBuild}\"">include/.hmEngineBuild.h
+	echo "#define VERSION \"halfMod v0.1.0-build${hmEngineBuild}\"">include/.hmEngineBuild.h
 fi
 

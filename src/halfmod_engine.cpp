@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
 					{
 						// host disconnected
 						close(sockfd);
-						processEvent(plugins,HM_ONHSDISCONNECT,hsMl);
+						processEvent(plugins,HM_ONHSDISCONNECT);
 						sockfd = 0;
 						cerr<<"Disconnected from host . . . Attempting to reconnect . . ."<<endl;
 						break;
