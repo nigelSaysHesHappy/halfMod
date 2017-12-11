@@ -24,6 +24,7 @@
 #define HM_ONCONNECT        16
 #define HM_ONHSCONNECT      17
 #define HM_ONHSDISCONNECT   18
+#define HM_ONSHUTDOWNPOST   19
 
 // for all events, args[0] will be the full thread line.
 // the following entries will be pieces of useful info in the order of appearance on the line.
@@ -48,6 +49,7 @@
 #define HM_ONPLUGINEND_FUNC     "onPluginEnd"         //    
 #define HM_ONHSCONNECT_FUNC     "onHShellConnect"     //    1 = hS version, 2 = mc screen, 3 = mc version
 #define HM_ONHSDISCONNECT_FUNC  "onHShellDisconnect"  //    
+#define HM_ONSHUTDOWNPOST_FUNC  "onServerShutdownPost"//    
 
 #define FLAG_ADMIN                1    //    a    Generic admin
 #define FLAG_BAN                  2    //    b    Can ban/unban
@@ -100,6 +102,13 @@ struct hmInfo
     std::string url;
 };
 
+struct hmPlugin
+{
+    std::string path;
+    std::string name;
+    std::string version;
+};
+
 struct hmCommand
 {
     std::string cmd;
@@ -119,7 +128,8 @@ struct hmHook
 struct hmEvent
 {
     int event;
-    int (*func)(hmHandle&,std::smatch);
+    int (*func)(hmHandle&);
+    int (*func_with)(hmHandle&,std::smatch);
 };
 
 struct hmPlayer
@@ -155,6 +165,7 @@ struct hmGlobal
 {
     std::vector<hmPlayer> players;
     std::vector<hmAdmin> admins;
+    std::vector<hmPlugin> pluginList;
     std::string mcVer;
     std::string hmVer;
     std::string hsVer;
@@ -199,7 +210,7 @@ class hmHandle
         
         // register an event hook
         // returns total number of events hooked, -1 on error
-        int hookEvent(int event, std::string function);
+        int hookEvent(int event, std::string function, bool withSmatch = true);
         
         // register an admin command
         // returns total number of commands registered by plugin, -1 on error
@@ -271,6 +282,7 @@ void mkdirIf(const char *path);
 std::string stripFormat(std::string str);
 hmGlobal *recallGlobal(hmGlobal *global);
 void hmSendRaw(std::string raw, bool output = true);
+void hmServerCommand(std::string raw, bool output = true);
 void hmReplyToClient(std::string client, std::string message);
 void hmSendCommandFeedback(std::string client, std::string message);
 void hmSendMessageAll(std::string message);
@@ -285,6 +297,8 @@ void hmOutDebug(std::string text);
 hmPlayer hmGetPlayerData(std::string client);
 void hmLog(std::string data, int logType, std::string logFile);
 int hmProcessTargets(std::string client, std::string target, std::vector<hmPlayer> &targList, int filter);
+bool hmIsPluginLoaded(std::string nameOrPath, std::string version = "");
+std::string hmGetPluginVersion(std::string nameOrPath);
 
 #endif
 
