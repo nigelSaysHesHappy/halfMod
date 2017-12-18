@@ -9,7 +9,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.4"
+#define VERSION "v0.1.8"
 
 string amtTime(/*love you*/long times);
 
@@ -45,11 +45,11 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
     mkdirIf("./halfMod/plugins/mailbox/");
 }
 
-int onWorldInit(hmHandle &handle, smatch args)
+/*int onWorldInit(hmHandle &handle, smatch args)
 {
     hmSendRaw("scoreboard objectives add hmMBXP dummy\nscoreboard players set #hm hmMBXP 0");
     return 0;
-}
+}*/
 
 int onPlayerJoin(hmHandle &handle, smatch args)
 {
@@ -109,11 +109,10 @@ int sendItem(hmHandle &handle, string client, string args[], int argc)
             msgWith = "A shiny gift!";
         string target = stripFormat(lower(mailbox.name));
         // by using the same name for the pattern, we can unhook them both at the same time
-        handle.hookPattern(client + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: \\[(" + client + "): Entity data updated to: (\\{.*Tags:\\[\"hmMBItem(" + target + ")\",\"killme\"\\].*\\})\\]$","sendItemCheck");
-        handle.hookPattern(client + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Failed to execute 'entitydata @e\\[tag=hmMBItem" + target + ",c=1\\] \\{Owner:\"" + target + "\",PickupDelay:100s,Tags:\\[\"hmMBItem(" + target + ")\",\"killme\"\\]\\}' as (" + client + ")$","sendItemFail");
-        hmSendRaw("execute " + client + " ~ ~ ~ scoreboard players tag @e[type=minecraft:item,r=10] add hmMBItem" + target + " {Thrower:\"" + client + "\"}\n\
-                   execute " + client + " ~ ~ ~ entitydata @e[tag=hmMBItem" + target + ",c=1] {Owner:\"" + target + "\",PickupDelay:10s,Tags:[\"hmMBItem" + target + "\",\"killme\"]}\n\
-                   scoreboard players tag @e[tag=hmMBItem" + target + "] remove hmMBItem" + target);
+        handle.hookPattern(client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: .+ has the following entity data: (\\{.*Tags: \\[\"hmMBItem(" + target + ")\".*\\})$","sendItemCheck");
+        handle.hookPattern(client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/ERROR\\]: Couldn't execute command for Server:\\s+data get entity @e\\[tag=hmMBItem" + target + ",limit=1\\]$","sendItemFail");
+        hmSendRaw("execute at " + client + " run data merge entity @e[type=minecraft:item,distance=..10,limit=1,sort=nearest,nbt={Thrower:\"" + client + "\"}] {Owner:\"" + target + "\",PickupDelay:10s,Tags:[\"hmMBItem" + target + "\",\"killme\"]}\n" +
+                  "data get entity @e[tag=hmMBItem" + target + ",limit=1]");
     }
     else
         hmReplyToClient(client,"No record of player '" + args[1] + "' found.");
@@ -122,20 +121,20 @@ int sendItem(hmHandle &handle, string client, string args[], int argc)
 
 int sendItemCheck(hmHandle &handle, hmHook hook, smatch args)
 {
-    string client = args[1].str(), tags = args[2].str(), target = args[3].str();
-    regex ptrn ("UUID(Least|Most):[0-9]+?L,?");
+    string client = gettok(hook.name,1," "), tags = args[1].str(), target = args[2].str();
+    regex ptrn ("UUID(Least|Most): -?[0-9]+?L,?");
     tags = regex_replace(tags,ptrn,"");
-    ptrn = "Tags:\\[[^\\]]*\\],?";
+    ptrn = "Tags: \\[[^\\]]*\\],?";
     tags = regex_replace(tags,ptrn,"");
-    ptrn = "Motion:\\[[^\\]]*\\],?";
+    ptrn = "Motion: \\[[^\\]]*\\],?";
     tags = regex_replace(tags,ptrn,"");
-    ptrn = "Rotation:\\[[^\\]]*\\],?";
+    ptrn = "Rotation: \\[[^\\]]*\\],?";
     tags = regex_replace(tags,ptrn,"");
-    ptrn = "FallDistance:[^f]*f,?";
+    ptrn = "FallDistance: [^f]*f,?";
     tags = regex_replace(tags,ptrn,"");
-    ptrn = "Dimension:[0-9]+?,?";
+    ptrn = "Dimension: -?[0-9]+?,?";
     tags = regex_replace(tags,ptrn,"");
-    ptrn = "Pos:\\[[^\\]]*\\],?";
+    ptrn = "Pos: \\[[^\\]]*\\],?";
     tags = regex_replace(tags,ptrn,"");
     ofstream file ("./halfMod/plugins/mailbox/" + target + ".mail",ios_base::app);
     if (file.is_open())
@@ -156,7 +155,7 @@ int sendItemCheck(hmHandle &handle, hmHook hook, smatch args)
 
 int sendItemFail(hmHandle &handle, hmHook hook, smatch args)
 {
-    string target = args[1].str(), client = args[2].str();
+    string client = gettok(hook.name,1," ");
     hmReplyToClient(client,"Unable to find an item to send! Drop an item from your inventory first!");
     handle.unhookPattern(hook.name);
     return 1;
@@ -183,40 +182,50 @@ int sendChest(hmHandle &handle, string client, string args[], int argc)
             msgWith = "A shiny gift!";
         string target = stripFormat(lower(mailbox.name));
         // by using the same name for the pattern, we can unhook them both at the same time
-        // [15:36:38] [Server thread/INFO]: [nigathan: Block data updated to: {x:-249,y:63,z:-16,Items:[{Slot:0b,id:"minecraft:snowball",Count:16b,Damage:0s},{Slot:1b,id:"minecraft:snowball",Count:16b,Damage:0s},{Slot:2b,id:"minecraft:snowball",Count:16b,Damage:0s},{Slot:3b,id:"minecraft:bowl",Count:1b,Damage:0s},{Slot:4b,id:"minecraft:chest",Count:1b,Damage:0s},{Slot:5b,id:"minecraft:snowball",Count:16b,Damage:0s},{Slot:6b,id:"minecraft:snowball",Count:16b,Damage:0s},{Slot:7b,id:"minecraft:iron_shovel",Count:1b,Damage:96s},{Slot:8b,id:"minecraft:wooden_pickaxe",Count:1b,Damage:6s},{Slot:9b,id:"minecraft:snowball",Count:16b,Damage:0s},{Slot:10b,id:"minecraft:snowball",Count:16b,Damage:0s},{Slot:11b,id:"minecraft:snowball",Count:16b,Damage:0s},{Slot:13b,id:"minecraft:mushroom_stew",Count:1b,Damage:0s},{Slot:14b,id:"minecraft:mushroom_stew",Count:1b,Damage:0s},{Slot:15b,id:"minecraft:mushroom_stew",Count:1b,Damage:0s},{Slot:16b,id:"minecraft:water_bucket",Count:1b,Damage:0s}],id:"minecraft:chest",Lock:"nigathan"}]
-        handle.hookPattern("hmMBChest" + client,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: \\[(" + client + "): Block data updated to: \\{(.*Lock:\"(" + target + ")\".*)\\}\\]$","sendChestCheck");
-        // [15:33:11] [Server thread/INFO]: Failed to execute 'detect' as nigathan
-        handle.hookPattern("hmMBChest" + client,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Failed to execute 'detect' as (" + client + ")$","sendChestFail");
-        // [02:16:29] [Server thread/INFO]: Selector '@a[name=nigathan,score_hmMBXP_min=5]' found nothing
-        handle.hookPattern("hmMBChest" + client,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Selector '@a\\[name=(" + client + "),score_hmMBXP_min=5\\]' found nothing$","sendChestFailIron");
-        //hmSendRaw("execute " + client + " ~ ~-0.5 ~ detect ~ ~ ~ minecraft:chest -1 blockdata ~ ~ ~ {Lock:\\\"" + target + "\\\"}");
-        hmSendRaw("stats entity " + client + " set AffectedItems @s hmMBXP\n\
-                   scoreboard players set " + client + " hmMBXP 0\n\
-                   execute " + client + " ~ ~ ~ clear @s minecraft:iron_ingot -1 0\n\
-                   stats entity " + client + " clear AffectedItems\n\
-                   execute @a[name=" + client + ",score_hmMBXP_min=5] ~ ~-0.5 ~ detect ~ ~ ~ minecraft:chest -1 blockdata ~ ~ ~ {Lock:\"" + target + "\"}\n\
-                   scoreboard players reset " + client + " hmMBXP");
+        // [04:16:59] [Server thread/INFO]: No items were found on player nigathan
+        handle.hookPattern("hmMBChest " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: No items were found on player (" + client + ")$","sendChestFailIron");
+        // [04:17:50] [Server thread/INFO]: Found 64 matching items on player nigathan
+        handle.hookPattern("hmMBChest " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Found ([0-9]+) matching items on player (" + client + ")$","sendChestIron");
+        hmSendRaw("clear " + client + " minecraft:iron_ingot 0");
+//                 execute at " + client + " run data get block ~ ~-0.5 ~");
     }
     else
         hmReplyToClient(client,"No record of player '" + args[1] + "' found.");
     return 0;
 }
 
+int sendChestIron(hmHandle &handle, hmHook hook, smatch args)
+{
+    int count = stoi(args[1].str());
+    string client = args[2].str();
+    if (count < 5)
+    {
+        hmReplyToClient(client,"It costs 5 iron ingots to wrap and send a chest! Try again when you can pay the fee!");
+        handle.unhookPattern(hook.name);
+        return 1;
+    }
+    string target = gettok(hook.name,3," ");
+    // [04:13:56] [Server thread/INFO]: -236, 67, -40 has the following block data: {x: -236, y: 67, z: -40, Items: [], id: "minecraft:chest", Lock: ""}
+    handle.hookPattern("hmMBChest " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (-?[0-9]+), (-?[0-9]+), (-?[0-9]+) has the following block data: \\{(.*id: \"(.+?)\".*)\\}$","sendChestCheck");
+    // [04:13:16] [Server thread/INFO]: The target block is not a block entity
+    handle.hookPattern("hmMBChest " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: The target block is not a block entity$","sendChestFail");
+    hmSendRaw("execute at " + client + " run data get block ~ ~-0.5 ~");
+    return 1;
+}
+
 int sendChestCheck(hmHandle &handle, hmHook hook, smatch args)
 {
-    string client = args[1].str(), tags = args[2].str(), target = args[3].str();
-    smatch ml;
-    string pos = "";
-    regex ptrn ("x:(-?[0-9]+)");
-    if (regex_search(tags,ml,ptrn))
-        pos = ml[1].str();
-    ptrn = "y:(-?[0-9]+)";
-    if (regex_search(tags,ml,ptrn))
-        pos = pos + " " + ml[1].str();
-    ptrn = "z:(-?[0-9]+)";
-    if (regex_search(tags,ml,ptrn))
-        pos = pos + " " + ml[1].str();
-    while (!isin(gettok(tags,1,","),"Items:"))
+    string pos = args[1].str() + " " + args[2].str() + " " + args[3].str();
+    string client = gettok(hook.name,2," "), tags = args[4].str(), block = args[5].str();
+    // "minecraft:white_shulker_box minecraft:orange_shulker_box minecraft:magenta_shulker_box minecraft:light_blue_shulker_box minecraft:yellow_shulker_box minecraft:lime_shulker_box minecraft:pink_shulker_box minecraft:gray_shulker_box minecraft:light_gray_shulker_box minecraft:cyan_shulker_box minecraft:purple_shulker_box minecraft:blue_shulker_box minecraft:brown_shulker_box minecraft:green_shulker_box minecraft:red_shulker_box minecraft:black_shulker_box"
+    if (!istok("minecraft:chest minecraft:trapped_chest",block," "))
+    {
+        hmReplyToClient(client,"Unable to find chest to send! Stand on top of a chest first!");
+        handle.unhookPattern(hook.name);
+        return 1;
+    }
+    string target = gettok(hook.name,3," ");
+    while (!isin(gettok(tags,1,","),"Items: "))
         tags = deltok(tags,1,",");
     while (!isin(gettok(tags,-1,","),"]"))
         tags = deltok(tags,-1,",");
@@ -224,8 +233,8 @@ int sendChestCheck(hmHandle &handle, hmHook hook, smatch args)
     ofstream file ("./halfMod/plugins/mailbox/" + target + ".mail",ios_base::app);
     if (file.is_open())
     {
-        hmSendRaw("setblock " + pos + " minecraft:air 0 replace\n\
-                   clear " + client + " minecraft:iron_ingot -1 5");
+        hmSendRaw("setblock " + pos + " minecraft:air replace\n" +
+                  "clear " + client + " minecraft:iron_ingot 5");
         time_t cTime = time(NULL);
         file<<"0:3:"<<hmGetPlayerInfo(client).name<<"="<<cTime<<"="<<tags<<"="<<msgWith;
         file<<endl;
@@ -234,17 +243,14 @@ int sendChestCheck(hmHandle &handle, hmHook hook, smatch args)
         mbNotify(target);
     }
     else
-    {
         hmReplyToClient(client,"Error opening mailbox . . .");
-        hmSendRaw("blockdata " + pos + " {Lock:\"\"}");
-    }
     handle.unhookPattern(hook.name);
     return 1;
 }
 
 int sendChestFail(hmHandle &handle, hmHook hook, smatch args)
 {
-    string client = args[1].str();
+    string client = gettok(hook.name,2," ");
     hmReplyToClient(client,"Unable to find chest to send! Stand on top of a chest first!");
     handle.unhookPattern(hook.name);
     return 1;
@@ -279,15 +285,9 @@ int sendXP(hmHandle &handle, string client, string args[], int argc)
             }
             else
                 msgWith = "A shiny gift!";
-            string fakeName = "#hmMBXP" + client + "#" + stripFormat(lower(mailbox.name));
-        //  [23:53:26] [Server thread/INFO]: Set score of hmTest for player #fake to 10
-            handle.hookPattern(fakeName,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Set score of hmMBXP for player #hmMBXP(" + client + ")#(" + stripFormat(lower(mailbox.name)) + ") to ([0-9]+)$","sendXPCheck");
-            hmSendRaw("scoreboard players operation " + fakeName + " hmMBXP = #hm hmMBXP\n\
-                       stats entity " + client + " set QueryResult " + fakeName + " hmMBXP\n\
-                       execute " + client + " ~ ~ ~ xp 0L " + client + "\n\
-                       stats entity " + client + " clear QueryResult\n\
-                       scoreboard players add " + fakeName + " hmMBXP 0\n\
-                       scoreboard players reset " + fakeName);
+            // [04:56:21] [Server thread/INFO]: nigathan has 0 experience levels
+            handle.hookPattern("hmMBXP " + client + " " + stripFormat(lower(mailbox.name)),"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (\\S+) has ([0-9]+) experience levels$","sendXPCheck");
+            hmSendRaw("experience query " + client + " levels");
         }
         else
             hmReplyToClient(client,"No record of player '" + args[1] + "' found.");
@@ -299,15 +299,16 @@ int sendXP(hmHandle &handle, string client, string args[], int argc)
 
 int sendXPCheck(hmHandle &handle, hmHook hook, smatch args)
 {
-    string client = args[1].str(), target = args[2].str();
-    int levels = stoi(args[3].str()), amount;
+    string client = args[1].str();
+    int levels = stoi(args[2].str()), amount;
+    string target = gettok(hook.name,3," ");
     if (levels >= xp2send)
     {
         ofstream file ("./halfMod/plugins/mailbox/" + target + ".mail",ios_base::app);
         if (file.is_open())
         {
             amount = getRealXP(levels) - getRealXP(levels - xp2send);
-            hmSendRaw(data2str("xp -%iL %s",xp2send,client.c_str()));
+            hmSendRaw(data2str("experience add %s -%i",client.c_str(),amount));
             time_t cTime = time(NULL);
             file<<"0:1:"<<hmGetPlayerInfo(client).name<<"="<<cTime<<"="<<amount<<"="<<msgWith;
             file<<endl;
@@ -366,9 +367,9 @@ int checkMail(hmHandle &handle, string client, string args[], int argc)
                 strftime(tsBuf,17,"[%D %R]",tstamp);
                 json = "[\"[HM] \",";
                 if (it->at(0) == '0')
-                    json += data2str("{\"text\":\"[%i] * \",\"color\":\"gold\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_open %i\"},\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Open\",\"color\":\"blue\"}]}}},",i,i);
+                    json += data2str("{\"text\":\"[%i] * \",\"color\":\"gold\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_open %i\"},\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Open\",\"color\":\"blue\"}]}}},",i,i);
                 else
-                    json += data2str("{\"text\":\"[%i] \",\"color\":\"gray\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_open %i\"},\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Re-open\",\"color\":\"blue\"}]}}},",i,i);
+                    json += data2str("{\"text\":\"[%i] \",\"color\":\"gray\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_open %i\"},\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Re-open\",\"color\":\"blue\"}]}}},",i,i);
                 if (it->at(2) > 51)
                 {
                     if (it->at(0) != '2')
@@ -389,11 +390,11 @@ int checkMail(hmHandle &handle, string client, string args[], int argc)
                 break;
         }
         if ((page > 1) && (page < pages))
-            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"<-- [Prev]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox " + data2str("%i",(page-1)) + "\"}},{\"text\":\"  +  \",\"color\":\"none\"},{\"text\":\"[Next] -->\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox " + data2str("%i",(page+1)) + "\"}}]");
+            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"<-- [Prev]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox " + data2str("%i",(page-1)) + "\"}},{\"text\":\"  +  \",\"color\":\"none\"},{\"text\":\"[Next] -->\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox " + data2str("%i",(page+1)) + "\"}}]");
         else if (page > 1)
-            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"<-- [Previous Page]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox " + data2str("%i",(page-1)) + "\"}}]");
+            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"<-- [Previous Page]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox " + data2str("%i",(page-1)) + "\"}}]");
         else if (page < pages)
-            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Next Page] -->\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox " + data2str("%i",(page+1)) + "\"}}]");
+            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Next Page] -->\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox " + data2str("%i",(page+1)) + "\"}}]");
     }
     else
         hmReplyToClient(client,"You have no mail! :(");
@@ -453,10 +454,10 @@ int mailOpen(hmHandle &handle, string client, string args[], int argc)
                     msg = strremove(*it,att + "=");
                     if ((attType == 2) || (attType == 5))
                     {
-                        ptrn = "id:\"(.+?)\"";
+                        ptrn = "id: \"(.+?)\"";
                         regex_search(att,ml,ptrn);
                         id = ml[1];
-                        ptrn = "Count:([0-9]+)b";
+                        ptrn = "Count: ([0-9]+)b";
                         regex_search(att,ml,ptrn);
                         count = stoi(ml[1].str());
                     }
@@ -472,20 +473,20 @@ int mailOpen(hmHandle &handle, string client, string args[], int argc)
                 {
                     json = " [\"[HM] \",";
                     if (opened != 2)
-                        json += "{\"text\":\"[A] \",\"color\":\"red\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Click to claim this attatchment!\",\"color\":\"red\"}]}},\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_accept " + data2str("%i",item) + "\"}},";
+                        json += "{\"text\":\"[A] \",\"color\":\"red\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Click to claim this attatchment!\",\"color\":\"red\"}]}},\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_accept " + data2str("%i",item) + "\"}},";
                     else
                         json += "{\"text\":\"[A] \",\"color\":\"dark_blue\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Attatchment already received!\",\"color\":\"dark_blue\"}]}}},";
                     if ((attType == 1) || (attType == 4))
                         json += data2str("{\"text\":\"%i\",\"color\":\"light_purple\"},{\"text\":\" Experience Points!\",\"color\":\"blue\"}]",xp);
                     else if ((attType == 2) || (attType == 5))
-                        json += data2str("{\"text\":\"%i\",\"color\":\"light_purple\"},{\"text\":\"x \",\"color\":\"white\"},{\"text\":\"Item(s)!\",\"color\":\"blue\",\"hoverEvent\":{\"action\":\"show_item\",\"value\":\"{\\\\\\\\\"id\\\\\\\\\":\\\\\\\\\"%s\\\\\\\\\",\\\\\\\\\"Count\\\\\\\\\":%i}\"}}]",count,id.c_str(),count);
+                        json += data2str("{\"text\":\"%i\",\"color\":\"light_purple\"},{\"text\":\"x \",\"color\":\"white\"},{\"text\":\"Item(s)!\",\"color\":\"blue\",\"hoverEvent\":{\"action\":\"show_item\",\"value\":\"{\\\\\"id\\\\\":\\\\\"%s\\\\\",\\\\\"Count\\\\\":%i}\"}}]",count,id.c_str(),count);
                     else if ((attType == 3) || (attType == 6))
                         json += "{\"text\":\"A nicely wrapped package!\",\"color\":\"blue\"}]";
                     hmSendRaw("tellraw " + client + json);
-                    hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Return to sender]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_return " + data2str("%i",item) + "\"}},{\"text\":\"  +  \",\"color\":\"white\"},{\"text\":\"[Delete]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_delete " + data2str("%i",item) + "\"}}]");
+                    hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Return to sender]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_return " + data2str("%i",item) + "\"}},{\"text\":\"  +  \",\"color\":\"white\"},{\"text\":\"[Delete]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_delete " + data2str("%i",item) + "\"}}]");
                 }
                 else
-                    hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Delete]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_delete " + data2str("%i",item) + "\"}}]");
+                    hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Delete]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_delete " + data2str("%i",item) + "\"}}]");
                 break;
             }
             i++;
@@ -561,19 +562,19 @@ int mailAccept(hmHandle &handle, string client, string args[], int argc)
             att = "{" + deltok(deltok(mail,1,"{"),-1,"}") + "}";
             if ((attType == 2) || (attType == 5))
             {
-                hmSendRaw("execute " + client + " ~ ~1.2 ~ summon minecraft:item ~ ~ ~ " + att);
+                hmSendRaw("execute as " + client + " at @s run summon minecraft:item ^ ^1.6 ^1 " + att);
                 hmReplyToClient(client,"You have claimed your item! Be sure to thank " + sender + "!");
             }
             else
             {
-                hmSendRaw("execute " + client + " ~ ~5 ~ summon minecraft:chest_minecart ~ ~ ~ " + att);
+                hmSendRaw("execute as " + client + " at @s run summon minecraft:chest_minecart ^ ^1.6 ^1.5 " + att);
                 hmReplyToClient(client,"You're package has arrived! Be sure to thank " + sender + "!");
             }
         }
         else
         {
             att = gettok(mail,3,"=");
-            hmSendRaw("xp " + att + " " + client);
+            hmSendRaw("experience add " + client + " " + att + " points");
             hmReplyToClient(client,"You have claimed your " + att + " XP! Be sure to thank " + sender + "!");
         }
         file.open("./halfMod/plugins/mailbox/" + client + ".mail",ios_base::out|ios_base::trunc);
@@ -769,7 +770,7 @@ void mbNotify(string client)
                     n++;
         }
         if (n > 0)
-            hmSendRaw(data2str("tellraw %s [\"[HM] You have \",{\"text\":\"%i\",\"color\":\"gold\",\"bold\":true},{\"text\":\" unread message(s)! \",\"color\":\"none\",\"bold\":false},{\"text\":\"Click here\",\"color\":\"blue\",\"underlined\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox\"}},{\"text\":\" to open your mailbox!\",\"color\":\"none\",\"underlined\":false}]",client.c_str(),n));            
+            hmSendRaw(data2str("tellraw %s [\"[HM] You have \",{\"text\":\"%i\",\"color\":\"gold\",\"bold\":true},{\"text\":\" unread message(s)! \",\"color\":\"none\",\"bold\":false},{\"text\":\"Click here\",\"color\":\"blue\",\"underlined\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox\"}},{\"text\":\" to open your mailbox!\",\"color\":\"none\",\"underlined\":false}]",client.c_str(),n));            
     }
 }
 
@@ -858,8 +859,10 @@ string amtTime(long times)
     return out;
 }
 
-
-
-
+/*
+tellraw nigathan ["[HM] ",{"text":"[A] ","color":"red","hoverEvent":{"action":"show_text","value":{"text":"","extra":[{"text":"Click to claim this attatchment!","color":"red"}]}},"clickEvent":{"action":"run_command","value":"/mb_accept 1"}},{"text":"1","color":"light_purple"},{"text":"x ","color":"white"},{"text":"Item(s)!","color":"blue","hoverEvent":{"action":"show_item","value":"{\\"id\\":\\"minecraft:music_disc_mall\\",\\"Count\\":1}"}}]
+com.mojang.brigadier.exceptions.CommandSyntaxException: Invalid chat component: Unterminated object at line 1 column 374 path $[4].hoverEvent.value at position 17: ... nigathan <--[HERE]
+[05:38:07] [Server thread/INFO]: Invalid chat component: Unterminated object at line 1 column 374 path $[4].hoverEvent.value at position 17: ... nigathan <--[HERE]
+*/
 
 

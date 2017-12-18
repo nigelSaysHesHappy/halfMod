@@ -6,7 +6,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.0.1"
+#define VERSION "v0.0.3"
 
 string amtTime(/*love you*/long times);
 
@@ -99,7 +99,7 @@ int whoisPlayer(hmHandle &handle, string caller, string args[], int argc)
             hmReplyToClient(caller,"  Last IP: " + target.ip);
             hmReplyToClient(caller,"  UUID: " + target.uuid);
             hmReplyToClient(caller,"  Access: " + access);
-            hmReplyToClient(caller,"  Last Online: " + amtTime(cTime-target.quit) + " ago");
+            hmReplyToClient(caller,"  Last Online: " + amtTime(cTime-target.quit) + " ago. " + nospace(gettok(target.quitmsg,-1,":")));
             if (target.death > 0)
             {
                 hmReplyToClient(caller,"  Last Death: " + amtTime(cTime-target.death) + " ago " + target.name + " " + target.deathmsg);
@@ -119,12 +119,8 @@ int whoisPlayer(hmHandle &handle, string caller, string args[], int argc)
 		for (vector<hmPlayer>::iterator it = targs.begin(), ite = targs.end();it != ite;++it)
 		{
 			stripClient = stripFormat(it->name);
-			handle.hookPattern(stripClient + "Whois" + caller,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Entity data updated to: \\{(.*Tags:\\[\"(" + stripClient + ")Whois(" + caller + ")\"\\].*)\\}$","whoisLookup");
-			hmSendRaw("execute @a[name=" + stripClient + ",m=0] ~ ~ ~ summon minecraft:area_effect_cloud ~ ~ ~ {Duration:1,ReapplicationDelay:0,Tags:[\"" + stripClient + "Whois" + caller + "\"]}");
-			hmSendRaw("execute @a[name=" + stripClient + ",m=1] ~ ~ ~ summon minecraft:area_effect_cloud ~ ~ ~ {Duration:1,ReapplicationDelay:1,Tags:[\"" + stripClient + "Whois" + caller + "\"]}");
-			hmSendRaw("execute @a[name=" + stripClient + ",m=2] ~ ~ ~ summon minecraft:area_effect_cloud ~ ~ ~ {Duration:1,ReapplicationDelay:2,Tags:[\"" + stripClient + "Whois" + caller + "\"]}");
-			hmSendRaw("execute @a[name=" + stripClient + ",m=3] ~ ~ ~ summon minecraft:area_effect_cloud ~ ~ ~ {Duration:1,ReapplicationDelay:3,Tags:[\"" + stripClient + "Whois" + caller + "\"]}");
-			hmSendRaw("entitydata @e[tag=" + stripClient + "Whois" + caller + "] {PortalCooldown:1}");
+			handle.hookPattern(caller + " whois","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + stripClient + ") has the following entity data: \\{(.*Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d].*)\\}$","whoisLookup");
+            hmSendRaw("data get entity " + stripClient);
 		}
 	}
     return 0;
@@ -132,12 +128,10 @@ int whoisPlayer(hmHandle &handle, string caller, string args[], int argc)
 
 int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
 {
-    string tags = args[1].str(), client = args[2].str(), caller = args[3].str(), pos, dim, gm, access;
-    regex ptrn ("Pos:\\[(-?[0-9]+)(\\.[0-9]+)?d,(-?[0-9]+)(\\.[0-9]+)?d,(-?[0-9]+)(\\.[0-9]+)?d\\]");
+    string client = args[1].str(), tags = args[2].str(), caller = gettok(hook.name,1," "), dim, gm, access, lvl, score;
+    string pos = args[3].str() + " " + args[4].str() + " " + args[5].str();
+    regex ptrn ("Dimension: (-?[0-9]+)");
     smatch ml;
-    regex_search(tags,ml,ptrn);
-    pos = ml[1].str() + " " + ml[3].str() + " " + ml[5].str();
-    ptrn = "Dimension:(-?[0-9]+)";
     regex_search(tags,ml,ptrn);
     dim = ml[1].str();
     switch (stoi(dim))
@@ -160,7 +154,7 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
         default:
             dim = "Unknown (" + dim + ")";
     }
-    ptrn = "ReapplicationDelay:(-?[0-9]+)";
+    ptrn = "playerGameType: (-?[0-9]+)";
     regex_search(tags,ml,ptrn);
     gm = ml[1].str();
     switch (stoi(gm))
@@ -188,6 +182,12 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
         default:
             gm = "Unknown (" + gm + ")";
     }
+    ptrn = "XpLevel: (-?[0-9]+)";
+    regex_search(tags,ml,ptrn);
+    lvl = ml[1].str();
+    ptrn = "Score: (-?[0-9]+)";
+    regex_search(tags,ml,ptrn);
+    score = ml[1].str();
     hmPlayer target = hmGetPlayerInfo(client);
     if (target.flags == 0)
         access = "None";
@@ -213,6 +213,8 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
     hmReplyToClient(caller,"  Gamemode: " + gm);
     hmReplyToClient(caller,"  Coords: " + pos);
     hmReplyToClient(caller,"  Dimension: " + dim);
+    hmReplyToClient(caller,"  XP Level: " + lvl);
+    hmReplyToClient(caller,"  Score: " + score);
     hmReplyToClient(caller,"  Online: " + amtTime(cTime-target.join));
     if (target.death > 0)
     {
@@ -230,20 +232,17 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
 int wherePlayer(hmHandle &handle, string client, string args[], int argc)
 {
     client = stripFormat(lower(client));
-    handle.hookPattern(client + "WhereAmI","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Entity data updated to: \\{(.*Tags:\\[\"(" + client + ")WhereAmI\"\\].*)\\}$","whereAmI");
-    hmSendRaw("execute " + client + " ~ ~ ~ summon minecraft:area_effect_cloud ~ ~ ~ {Duration:1,Tags:[\"" + client + "WhereAmI\"]}\n\
-               entitydata @e[tag=" + client + "WhereAmI] {PortalCooldown:1}");
+    handle.hookPattern(client + "WhereAmI","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client + ") has the following entity data: \\{(.*Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d].*)\\}$","whereAmI");
+    hmSendRaw("data get entity " + client);
     return 0;
 }
 
 int whereAmI(hmHandle &handle, hmHook hook, smatch args)
 {
-    string tags = args[1].str(), client = args[2].str(), pos, dim;
-    regex ptrn ("Pos:\\[(-?[0-9]+)(\\.[0-9]+)?d,(-?[0-9]+)(\\.[0-9]+)?d,(-?[0-9]+)(\\.[0-9]+)?d\\]");
+    string client = args[1].str(), tags = args[2].str(), dim;
+    string pos = args[3].str() + " " + args[4].str() + " " + args[5].str();
+    regex ptrn ("Dimension: (-?[0-9]+)");
     smatch ml;
-    regex_search(tags,ml,ptrn);
-    pos = ml[1].str() + " " + ml[3].str() + " " + ml[5].str();
-    ptrn = "Dimension:(-?[0-9]+)";
     regex_search(tags,ml,ptrn);
     dim = ml[1].str();
     switch (stoi(dim))
@@ -273,14 +272,14 @@ int whereAmI(hmHandle &handle, hmHook hook, smatch args)
 
 int timeTillDay(hmHandle &handle, string client, string args[], int argc)
 {
-    handle.hookPattern("daytime","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Time is ([0-9]+)","timeCheck");
+    handle.hookPattern("daytime","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: T(he t)?ime is ([0-9]+)","timeCheck");
     hmSendRaw("time query daytime");
     return 0;
 }
 
 int timeCheck(hmHandle &handle, hmHook hook, smatch args)
 {
-    int dTime = stoi(args[1].str()), ticks = 0;
+    int dTime = stoi(args[2].str()), ticks = 0;
     if (dTime < 12541)
         ticks = 12541 - dTime;
     else if (dTime > 23458)

@@ -9,7 +9,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.5"
+#define VERSION		"v0.0.6"
 
 extern "C" {
 
@@ -492,7 +492,7 @@ int setGamerule(hmHandle &handle, string client, string args[], int argc)
     }
     if (argc < 3)
     {
-        handle.hookPattern(client,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + args[1] + ") = (.*)$","getGamerule");
+        handle.hookPattern(client,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Gamerule (" + args[1] + ") is currently set to: (.*)$","getGamerule");
         hmSendRaw("gamerule " + args[1]);
     }
     else
@@ -501,7 +501,7 @@ int setGamerule(hmHandle &handle, string client, string args[], int argc)
         for (int i = 2;i < argc;i++)
             arg = addtok(arg,args[i]," ");
         hmSendRaw("gamerule " + args[1] + " " + arg);
-        hmReplyToClient(client,"Set gamerule '" + args[1] + "' to '" + arg + "'.");
+        hmReplyToClient(client,"Attempted to set gamerule '" + args[1] + "' to '" + arg + "'.");
     }
     return 0;
 }
@@ -539,7 +539,7 @@ int setGamemode(hmHandle &handle, string client, string args[], int argc)
     }
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
-        hmSendRaw("gamemode " + args[1] + " " + it->name);
+        hmSendRaw("gamemode " + args[1] + " " + stripFormat(it->name));
         hmSendCommandFeedback(client,"Changed the gamemode of player " + it->name + " to " + args[1] + ".");
     }
     return 0;
@@ -560,9 +560,11 @@ int bringPlayer(hmHandle &handle, string client, string args[], int argc)
 	    hmReplyToClient(client,"No matching players found.");
 	    return 2;
     }
+    string name;
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
-        hmSendRaw("teleport " + it->name + " " + client);
+        name = stripFormat(it->name);
+        hmSendRaw("execute as " + stripFormat(client) + " at @s run teleport " + name + " ^ ^1.66 ^2");
         hmSendCommandFeedback(client,"Teleported " + it->name + ".");
     }
     return 0;
@@ -581,20 +583,22 @@ int toggleNoclip(hmHandle &handle, string client, string args[], int argc)
     }
     else
         targn = hmProcessTargets(client,args[1],targs,FILTER_NAME|FILTER_NO_SELECTOR);
+    string name;
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
-        hmSendRaw("scoreboard players tag @a[name=" + it->name + ",m=0] add hmNoclip0",false);
-        hmSendRaw("scoreboard players tag @a[name=" + it->name + ",m=1] add hmNoclip1",false);
-        hmSendRaw("scoreboard players tag @a[name=" + it->name + ",m=2] add hmNoclip2",false);
-        hmSendRaw("scoreboard players tag @a[name=" + it->name + ",m=!3] add hmNoclipping",false);
-        hmSendRaw("gamemode spectator @a[name=" + it->name + ",tag=hmNoclipping]",false);
-        hmSendRaw("execute @a[name=" + it->name + ",tag=!hmNoclipping] ~ ~ ~ gamemode survival @s[tag=hmNoclip0]",false);
-        hmSendRaw("execute @a[name=" + it->name + ",tag=!hmNoclipping] ~ ~ ~ gamemode creative @s[tag=hmNoclip1]",false);
-        hmSendRaw("execute @a[name=" + it->name + ",tag=!hmNoclipping] ~ ~ ~ gamemode adventure @s[tag=hmNoclip2]",false);
-        hmSendRaw("scoreboard players tag @a[name=" + it->name + ",tag=!hmNoclipping] remove hmNoclip0",false);
-        hmSendRaw("scoreboard players tag @a[name=" + it->name + ",tag=!hmNoclipping] remove hmNoclip1",false);
-        hmSendRaw("scoreboard players tag @a[name=" + it->name + ",tag=!hmNoclipping] remove hmNoclip2",false);
-        hmSendRaw("scoreboard players tag @a[name=" + it->name + ",tag=hmNoclipping] remove hmNoclipping",false);
+        name = stripFormat(it->name);
+        hmSendRaw("scoreboard players tag @a[name=" + name + ",gamemode=survival] add hmNoclip0",false);
+        hmSendRaw("scoreboard players tag @a[name=" + name + ",gamemode=creative] add hmNoclip1",false);
+        hmSendRaw("scoreboard players tag @a[name=" + name + ",gamemode=adventure] add hmNoclip2",false);
+        hmSendRaw("scoreboard players tag @a[name=" + name + ",gamemode=!spectator] add hmNoclipping",false);
+        hmSendRaw("gamemode spectator @a[name=" + name + ",tag=hmNoclipping]",false);
+        hmSendRaw("gamemode survival @a[name=" + name + "tag=!hmNoclipping,tag=hmNoclip0]",false);
+        hmSendRaw("gamemode creative @a[name=" + name + "tag=!hmNoclipping,tag=hmNoclip1]",false);
+        hmSendRaw("gamemode adventure @a[name=" + name + "tag=!hmNoclipping,tag=hmNoclip2]",false);
+        hmSendRaw("scoreboard players tag @a[name=" + name + ",tag=!hmNoclipping] remove hmNoclip0",false);
+        hmSendRaw("scoreboard players tag @a[name=" + name + ",tag=!hmNoclipping] remove hmNoclip1",false);
+        hmSendRaw("scoreboard players tag @a[name=" + name + ",tag=!hmNoclipping] remove hmNoclip2",false);
+        hmSendRaw("scoreboard players tag @a[name=" + name + ",tag=hmNoclipping] remove hmNoclipping",false);
         hmSendCommandFeedback(client,"Has toggled noclip on " + it->name);
     }
     return 0;
@@ -665,10 +669,12 @@ int smitePlayer(hmHandle &handle, string client, string args[], int argc)
 	    hmReplyToClient(client,"No matching players found.");
 	    return 2;
     }
+    string name;
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
-        hmSendRaw("execute " + it->name + " ~ ~ ~ summon minecraft:lightning");
-        handle.createTimer("smite" + it->name,0,"delayedKill",it->name);
+        name = stripFormat(it->name);
+        hmSendRaw("execute at " + name + " run summon minecraft:lightning_bolt");
+        handle.createTimer("smite" + name,0,"delayedKill",name);
         hmSendCommandFeedback(client,"Smote " + it->name + ".");
     }
     return 0;
@@ -695,10 +701,12 @@ int rocketPlayer(hmHandle &handle, string client, string args[], int argc)
 	    hmReplyToClient(client,"No matching players found.");
 	    return 2;
     }
+    string name;
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
-        hmSendRaw("effect " + it->name + " minecraft:levitation 5 25");
-        handle.createTimer("explode" + it->name,3,"delayedExplode",it->name);
+        name = stripFormat(it->name);
+        hmSendRaw("effect give " + name + " minecraft:levitation 5 25");
+        handle.createTimer("explode" + name,3,"delayedExplode",name);
         hmSendCommandFeedback(client,"Launched " + it->name + " into space.");
     }
     return 0;
@@ -706,7 +714,7 @@ int rocketPlayer(hmHandle &handle, string client, string args[], int argc)
 
 int delayedExplode(hmHandle &handle, string client)
 {
-    hmSendRaw("execute " + client + " ~ ~ ~ summon minecraft:creeper ~ ~ ~ {Fuse:0,ignited:1}");
+    hmSendRaw("execute at " + client + " run summon minecraft:creeper ~ ~ ~ {Fuse:0,ignited:1}");
     handle.createTimer("kill" + client,0,"delayedKill",client);
     return 1;
 }
@@ -728,7 +736,7 @@ int slayPlayer(hmHandle &handle, string client, string args[], int argc)
     }
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
-        hmSendRaw("kill " + it->name);
+        hmSendRaw("kill " + stripFormat(it->name));
         hmSendCommandFeedback(client,"Slayed " + it->name + ".");
     }
     return 0;
@@ -751,8 +759,7 @@ int explodePlayer(hmHandle &handle, string client, string args[], int argc)
     }
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
-        hmSendRaw("execute " + it->name + " ~ ~ ~ summon minecraft:creeper ~ ~ ~ {Fuse:0,ignited:1}");
-        handle.createTimer("explode" + it->name,0,"delayedExplode",it->name);
+        delayedExplode(handle,stripFormat(it->name));
         hmSendCommandFeedback(client,"Exploded " + it->name + ".");
     }
     return 0;

@@ -25,7 +25,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
     handle.regAdminCmd("hm_reservedslots","slotCom",FLAG_CVAR,"Set the number of reserved slots.");
 }
 
-int onPlayerConnect(hmHandle &handle, smatch args)
+int onPlayerJoin(hmHandle &handle, smatch args)
 {
     hmGlobal *global;
     global = recallGlobal(global);
