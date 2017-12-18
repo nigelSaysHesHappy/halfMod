@@ -104,10 +104,9 @@ int writePlayerDat(string client, string data, string ignore, bool ifNotPresent)
 
 // in charge of populating the hmGlobal struct and controlling console output
 // I said f it and made it handle everything.
-int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFilter> &filters, string thread)
+int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
 {
 	static bool catchLine = false;
-	bool out = true;
 	if (catchLine == true)
 	{
 		catchLine = false;
@@ -116,23 +115,50 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
 		for (int i = 1, j = numtok(nextLine," ");i <= j;i++)
 			loadPlayerData(info,gettok(nextLine,i," "));
 	}
+	short blocking = 0;
+    smatch ml;
+    vector<int> events;
+    bool newEvent;
 	for (auto it = filters.begin(), ite = filters.end();it != ite;++it)
 	{
-		if (regex_search(thread,it->filter))
+		if (regex_search(thread,ml,it->filter))
 		{
-			if (it->blocking)
-				return 1;
-			out = false;
+			if (it->blockOut)
+				blocking |= HM_BLOCK_OUTPUT;
+			if (it->blockEvent)
+				blocking |= HM_BLOCK_EVENT;
+			if (it->blockHook)
+				blocking |= HM_BLOCK_HOOK;
+			if (it->event)
+			{
+			    newEvent = true;
+			    for (auto iti = events.begin(), itie = events.end();iti != itie;++iti)
+		        {
+		            if (*iti == it->event)
+		            {
+		                newEvent = false;
+		                break;
+	                }
+                }
+                if (newEvent)
+			    {
+			        events.push_back(it->event);
+			        if (processEvent(plugins,it->event,ml))
+			            blocking |= HM_BLOCK_EVENT;
+	            }
+	        }
 		}
 	}
-	if (out)
+	if ((blocking & HM_BLOCK_OUTPUT) == 0)
 		cout<<thread<<endl;
-    if (processHooks(plugins,thread))
+	if ((blocking & HM_BLOCK_HOOK) == 0)
+        if (processHooks(plugins,thread))
+            return 1;
+    if (blocking & HM_BLOCK_EVENT)
         return 1;
     if (thread == "]:-:-:-:[###[THREAD COMPLETE]###]:-:-:-:[")
         return processEvent(plugins,HM_ONSHUTDOWNPOST);
     regex ptrn ("\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] (.+)");
-    smatch ml;
     if (regex_match(thread,ml,ptrn))
     {
         thread = ml[1].str();
@@ -142,7 +168,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
             if (processEvent(plugins,HM_ONINFO,ml))
                 return 1;
             thread = ml[1].str();
-            ptrn = "[^\\s\\[\\]<>]+ did not match.*";
+            ptrn = "[^\\s\\[\\]<>]+ (did not match|has the following entity data:|has [0-9]+ experience|has [0-9]+ \\[.*?\\]|moved too quickly!|moved wrongly!).*";
             if (regex_match(thread,ptrn))
                 return 0;
             ptrn = "<(\\S+?)> (.*)";
@@ -154,7 +180,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
                     ptrn = "<(\\S+?)> !(\\S+) ?(.*)";
                     if (regex_match(thread,ml,ptrn))
                     {
-                            if (processCmd(info,plugins,filters,"hm_" + ml[2].str(),ml[1].str(),ml[3].str()))
+                            if (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str()))
                                 return 1;
                     }
                     if (processEvent(plugins,HM_ONTEXT,ml1))
@@ -206,6 +232,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
                                     ptrn = "Done \\((.*)\\)!.*";
                                     if (regex_match(thread,ml,ptrn))
                                     {
+                                        hmSendRaw("list");
                                         if (info.mcVer == "")
 					                        cout<<"Minecraft version undefined."<<endl;
 				                        else
@@ -214,21 +241,30 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
 					                        cout<<"World undefined."<<endl;
 				                        else
 				                            cout<<"World defined as: "<<info.world<<endl;
-				                        internalExec(info,plugins,filters,"","#SERVER","autoexec");	// on world load setup
-				                        internalExec(info,plugins,filters,"","#SERVER","startup");	// this will contain timed unbans if the server was offline when they expired
+				                        internalExec(info,plugins,"","#SERVER","autoexec");	// on world load setup
+				                        internalExec(info,plugins,"","#SERVER","startup");	// this will contain timed unbans if the server was offline when they expired
 				                        remove("./halfMod/configs/startup.cfg");	// delete startup
 				                        if (processEvent(plugins,HM_ONWORLDINIT,ml))
 					                        return 1;
 					                }
 					                else
 					                {
-					                    ptrn = "There are ([0-9]{1,})/([0-9]{1,}) players online:";
+					                    ptrn = "There are ([0-9]{1,})(/| of a max )([0-9]{1,}) players online:\\s*(.*)";
 					                    if (regex_match(thread,ml,ptrn))
 					                    {
 					                        info.players.clear();
 					                        if (stoi(ml[1].str()) > 0)
-						                        catchLine = true;
-						                    info.maxPlayers = stoi(ml[2].str());
+					                        {
+					                            if (ml[2].str().size() < 2)
+    						                        catchLine = true;
+						                        else
+						                        {
+						                            string users = strremove(ml[4].str(),",");
+		                                            for (int i = 1, j = numtok(users," ");i <= j;i++)
+			                                            loadPlayerData(info,gettok(users,i," "));
+					                            }
+				                            }
+						                    info.maxPlayers = stoi(ml[3].str());
 						                }
 						                else
 						                {
@@ -341,12 +377,24 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFil
                     if (processEvent(plugins,HM_ONSHUTDOWN,ml))
                         return 1;
                 }
-                ptrn = "\\[User Authenticator #([0-9]{1,})/INFO\\]: UUID of player (\\S+) is (.*)";
-                if (regex_match(thread,ml,ptrn))
+                else
                 {
-                    writePlayerDat(ml[2].str(),"uuid=" + ml[3].str(),"uuid",true);
-                    if (processEvent(plugins,HM_ONAUTH,ml))
-                        return 1;
+                    ptrn = "\\[User Authenticator #([0-9]{1,})/INFO\\]: UUID of player (\\S+) is (.*)";
+                    if (regex_match(thread,ml,ptrn))
+                    {
+                        writePlayerDat(ml[2].str(),"uuid=" + ml[3].str(),"uuid",true);
+                        if (processEvent(plugins,HM_ONAUTH,ml))
+                            return 1;
+                    }
+                    else
+                    {
+                        ptrn = "\\[Server thread/ERROR]: Couldn't execute command for (\\S+): (\\S+) ?(.*)";
+                        if (regex_match(thread,ml,ptrn))
+                        {
+                            if (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str(),false))
+                                return 1;
+                        }
+                    }
                 }
             }
         }
@@ -401,24 +449,26 @@ int isInternalCmd(string cmd)
 	return -1;
 }
 
-int processCmd(hmGlobal &global, vector<hmHandle> &plugins, vector<hmConsoleFilter> &filters, string cmd, string caller, string args, bool console)
+int processCmd(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string caller, string args, bool visible, bool console)
 {
-	if (caller != "#SERVER")
-		cout<<"[HM] "<<caller<<" is issuing the command "<<cmd<<endl;
+    if (caller == "Server")
+        return 0;
 	hmCommand com;
 	int flags;
 	if (console)
 		flags = FLAG_ROOT;
 	else	flags = hmGetPlayerFlags(caller);
 	string *arga;
-	int argc = numtok(args," ")+1;
+	int argc = numqtok(args," ")+1;
 	arga = new string[argc];
 	arga[0] = cmd;
 	for (int i = 1;i < argc;i++)
-		arga[i] = gettok(args,i," ");
+		arga[i] = getqtok(args,i," ");
 	int ret = 0, internal;
 	if ((internal = isInternalCmd(cmd)) > -1)
 	{
+	    if (caller != "#SERVER")
+    		cout<<"[HM] "<<caller<<" is issuing the command "<<cmd<<endl;
 		switch (internal)
 		{
 			case 0:
@@ -448,17 +498,17 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, vector<hmConsoleFilt
 			}
 			case 5:
 			{
-				ret = internalExec(global,plugins,filters,cmd,caller,args);
+				ret = internalExec(global,plugins,cmd,caller,args);
 				break;
 			}
 			case 6:
 			{
-				ret = internalRcon(global,plugins,filters,cmd,caller,args);
+				ret = internalRcon(global,plugins,cmd,caller,args);
 				break;
 			}
 			case 7:
 			{
-				ret = internalRehash(filters,caller);
+				ret = internalRehash(plugins,caller);
 				break;
 			}
 		}
@@ -472,6 +522,8 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, vector<hmConsoleFilt
 			{
 				if ((com.flag == 0) || (flags & com.flag))
 				{
+				    if (caller != "#SERVER")
+                		cout<<"[HM] "<<caller<<" is issuing the command "<<cmd<<endl;
 					ret = (*com.func)(*it,caller,arga,argc);
 					internal = 1;
 					break;
@@ -493,6 +545,10 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, vector<hmConsoleFilt
 			    hmSendRaw(cmd,false);
 			ret = 1;
 		}
+		else if ((internal < 0) && (!visible))
+		{
+		    hmReplyToClient(caller,"Unknown command: " + cmd);
+	    }
 	}
 	delete[] arga;
 	return ret;
@@ -558,7 +614,7 @@ int hashAdmins(hmGlobal &info, string path)
 	return 1;
 }
 
-int hashConsoleFilters(vector<hmConsoleFilter> &filters, string path)
+int hashConsoleFilters(vector<hmHandle> &plugins, string path)
 {
 	ifstream file(path);
 	if (file.is_open())
@@ -568,14 +624,29 @@ int hashConsoleFilters(vector<hmConsoleFilter> &filters, string path)
 		hmConsoleFilter temp;
 		while (getline(file,line))
 		{
-		    if (line.at(0) == '#')
+		    temp.event = stoi(gettok(line,1," "));
+		    if ((line.at(0) == '#') || (temp.event == 0))
 		        continue;
-			if (gettok(line,1," ") == "0")
-				temp.blocking = false;
-			else	temp.blocking = true;
+	        if (temp.event & HM_BLOCK_OUTPUT)
+	        {
+	            temp.event -= HM_BLOCK_OUTPUT;
+	            temp.blockOut = true;
+            }
+            if (temp.event & HM_BLOCK_EVENT)
+            {
+	            temp.event -= HM_BLOCK_EVENT;
+	            temp.blockEvent = true;
+            }
+            if (temp.event & HM_BLOCK_HOOK)
+            {
+	            temp.event -= HM_BLOCK_HOOK;
+	            temp.blockHook = true;
+            }
+            temp.name = "config";
 			temp.filter = deltok(line,1," ");
 			filters.push_back(temp);
 		}
+		processEvent(plugins,HM_ONREHASHFILTER);
 		file.close();
 		return 0;
 	}
@@ -792,7 +863,7 @@ int internalReload(hmGlobal &global, string caller)
 	return 0;
 }
 
-int internalExec(hmGlobal &global, vector<hmHandle> &plugins, vector<hmConsoleFilter> &filters, string cmd, string caller, string args)
+int internalExec(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string caller, string args)
 {
 	if ((hmGetPlayerFlags(caller) & FLAG_CONFIG) == 0)
 	{
@@ -813,7 +884,7 @@ int internalExec(hmGlobal &global, vector<hmHandle> &plugins, vector<hmConsoleFi
 	string line;
 	int lines = 0;
 	for (;getline(file,line);lines++)
-		processCmd(global,plugins,filters,gettok(line,1," "),"#SERVER",deltok(line,1," "),true);
+		processCmd(global,plugins,gettok(line,1," "),"#SERVER",deltok(line,1," "),true,true);
 	hmReplyToClient(caller,data2str("Executed %i line(s) from file.",lines));
 	file.close();
 	return 0;
@@ -941,7 +1012,7 @@ int internalCredits(hmGlobal &global, string caller)
 	return 0;
 }
 
-int internalRcon(hmGlobal &global, vector<hmHandle> &plugins, vector<hmConsoleFilter> &filters, string cmd, string caller, string args)
+int internalRcon(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string caller, string args)
 {
 	if ((hmGetPlayerFlags(caller) & FLAG_RCON) == 0)
 	{
@@ -953,18 +1024,18 @@ int internalRcon(hmGlobal &global, vector<hmHandle> &plugins, vector<hmConsoleFi
 		hmReplyToClient(caller,"Usage: " + cmd + " <command> [arguments ...]");
 		return 8;
 	}	
-	processCmd(global,plugins,filters,gettok(args,1," "),caller,deltok(args,1," "),true);
+	processCmd(global,plugins,gettok(args,1," "),caller,deltok(args,1," "),true,true);
 	return 0;
 }
 
-int internalRehash(vector<hmConsoleFilter> &filters, string caller)
+int internalRehash(vector<hmHandle> &plugins, string caller)
 {
 	if ((hmGetPlayerFlags(caller) & FLAG_CONFIG) == 0)
 	{
 		hmReplyToClient(caller,"You do not have access to this command.");
 		return 9;
 	}
-	if (hashConsoleFilters(filters,CONFILTERPATH))
+	if (hashConsoleFilters(plugins,CONFILTERPATH))
 	{
 		hmReplyToClient(caller,"Unable to load console filter config file . . .");
 		return 1;

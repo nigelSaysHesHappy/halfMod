@@ -256,7 +256,51 @@ string strremove(string text, string subtext)
     return text;
 }
 
+int numqtok(string tokens, string delim)
+{
+    if (tokens.size() == 0) return 0;
+	int y = 1;
+	bool open = false;
+    for (size_t x = 0; x < tokens.size(); x++)
+    {
+        if (tokens.compare(x,1,"\"") == 0)
+        {
+            open = !open;
+            if ((open) && (tokens.find("\"",x+1,1) == string::npos))
+                open = false;
+        }
+        if ((!open) && (tokens.compare(x,1,delim) == 0) && (tokens.compare(x+1,1,delim) != 0) && (x+1 < tokens.size())) y++;
+    }
+	return y;
+}
+
 string getqtok(string tokens, int tok, string delim)
+{
+    int x = 1, y = 0, z = delim.size(), c = numtok(tokens,delim);
+    string ret;
+    bool open = false;
+    if (tok < 0) tok = c+tok+1;
+    for (size_t a = 0; a < tokens.size(); a++)
+    {
+        if (tokens.compare(a,1,"\"") == 0)
+        {
+            open = !open;
+            if ((open) && (tokens.find("\"",a+1,1) == string::npos))
+                open = false;
+        }
+        if ((!open) && (tokens.compare(a,z,delim) == 0)) x++;
+        if (x == tok) y = x;
+        if (y > 0)
+        {
+            if (x > y) break;
+            ret.append(tokens,a,1);
+        }
+    }
+    if (ret.compare(0,z,delim) == 0) return ret.erase(0,z);
+    else return ret;
+}
+
+/*string getqtok(string tokens, int tok, string delim)
 {
      int x = 1, y = 0, z = delim.size(), par = 0, pars = isin(tokens,"\"",0), para = pars % 2, parb = pars-para, c = numtok(tokens,delim);
      string ret;
@@ -283,7 +327,7 @@ string getqtok(string tokens, int tok, string delim)
      //}
      if (ret.compare(0,z,delim) == 0) return ret.erase(0,z);
      else return ret;
-}
+}*/
 
 bool iswm(string text, string subtext)
 {

@@ -10,6 +10,8 @@
 #include ".hmEngineBuild.h"
 using namespace std;
 
+vector<hmConsoleFilter> filters;
+
 int main(int argc, char *argv[])
 {
 	int port, sockfd;
@@ -23,6 +25,7 @@ int main(int argc, char *argv[])
 	int valread;
 	bool connected;
 	hmGlobal serverInfo;
+	serverInfo.conFilter = &filters;
 	recallGlobal(&serverInfo);
 	serverInfo.hmVer = VERSION;
 	
@@ -77,7 +80,7 @@ int main(int argc, char *argv[])
 					if (iswm(nospace(line),"#*")) continue;
 					line = lower(line);
 					if (gettok(line,1,"=") == "ip") host[0] = gettok(line,2,"=");
-					if (gettok(line,1,"=") == "port") host[1] = str2int(gettok(line,2,"="));
+					if (gettok(line,1,"=") == "port") host[1] = stoi(gettok(line,2,"="));
 				}
 				line = "";
 				rFile.close();
@@ -106,15 +109,14 @@ int main(int argc, char *argv[])
 	mkdirIf("./halfMod/userdata/");
 	mkdirIf("./halfMod/logs/");
 	
-	vector<hmConsoleFilter> conFilters;
 	vector<string> pluginPaths;
 	vector<hmHandle> plugins;
 	hashAdmins(serverInfo,ADMINCONF);
-	hashConsoleFilters(conFilters,CONFILTERPATH);
 //	plugins.resize(findPlugins("./halfMod/plugins/",pluginPaths));
 	findPlugins("./halfMod/plugins/",pluginPaths);
 	for (int i = 0, j = pluginPaths.size();i < j;i++)
 		loadPlugin(serverInfo,plugins,pluginPaths[i]);
+	hashConsoleFilters(plugins,CONFILTERPATH);
 	// eventually get around to using fstream for this... lol
 	system("echo todo>listo.nada");
 	regex hsPtrn ("^(.*?)\t(.*?)\t(.*)$");
@@ -161,7 +163,7 @@ int main(int argc, char *argv[])
 		send(sockfd,line.c_str(),line.size(),0); // send handshake
 		line.clear();
 		connected = false;
-		send(sockfd,"list\r",5,0); // request player list upon connecting
+		//send(sockfd,"list\r",5,0); // request player list upon connecting
 		while (1)
 		{
 			//clear the socket set
@@ -189,7 +191,7 @@ int main(int argc, char *argv[])
 					getline(cin,line);
 					if (line != "")
 					{
-						processCmd(serverInfo,plugins,conFilters,gettok(line,1," "),"#SERVER",deltok(line,1," "),true);
+						processCmd(serverInfo,plugins,gettok(line,1," "),"#SERVER",deltok(line,1," "),false,true);
 //						cout<<"stdin: "<<line<<endl;
 						line.clear();
 					}
@@ -218,7 +220,7 @@ int main(int argc, char *argv[])
 						processEvent(plugins,HM_ONHSCONNECT,hsMl);
 					}
 					else
-						processThread(serverInfo,plugins,conFilters,line);
+						processThread(serverInfo,plugins,line);
 					line.clear();
 				}
 				processTimers(plugins);
