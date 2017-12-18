@@ -6,25 +6,40 @@
 #include <string>
 #include ".hmAPIBuild.h"
 
-#define HM_ONAUTH           1
-#define HM_ONJOIN           2
-#define HM_ONWARN           3
-#define HM_ONINFO           4
-#define HM_ONSHUTDOWN       5
-#define HM_ONDISCONNECT     6
-#define HM_ONPART           7
-#define HM_ONADVANCE        8
-#define HM_ONGOAL           9
-#define HM_ONCHALLENGE      10
-#define HM_ONACTION         11
-#define HM_ONTEXT           12
-#define HM_ONFAKETEXT       13
-#define HM_ONDEATH          14
-#define HM_ONWORLDINIT      15
-#define HM_ONCONNECT        16
-#define HM_ONHSCONNECT      17
-#define HM_ONHSDISCONNECT   18
-#define HM_ONSHUTDOWNPOST   19
+#define HM_NON_BLOCK        0
+#define HM_BLOCK_OUTPUT     1
+#define HM_BLOCK_EVENT      2
+#define HM_BLOCK_HOOK       4
+#define HM_BLOCK_ALL        7
+#define HM_ONAUTH           8
+#define HM_ONJOIN           16
+#define HM_ONWARN           24
+#define HM_ONINFO           32
+#define HM_ONSHUTDOWN       40
+#define HM_ONDISCONNECT     48
+#define HM_ONPART           56
+#define HM_ONADVANCE        64
+#define HM_ONGOAL           72
+#define HM_ONCHALLENGE      80
+#define HM_ONACTION         88
+#define HM_ONTEXT           96
+#define HM_ONFAKETEXT       104
+#define HM_ONDEATH          112
+#define HM_ONWORLDINIT      120
+#define HM_ONCONNECT        128
+#define HM_ONHSCONNECT      136
+#define HM_ONHSDISCONNECT   144
+#define HM_ONSHUTDOWNPOST   152
+#define HM_ONREHASHFILTER   160
+#define HM_ONCUSTOM_1       168
+#define HM_ONCUSTOM_2       176
+#define HM_ONCUSTOM_3       184
+#define HM_ONCUSTOM_4       192
+#define HM_ONCUSTOM_5       200
+// The limit of custom event id's is only bound by the max size of an int
+// As long as the id cannot be & by 1, 2, or 4, it is valid
+// These 5 are simply a base to use as an idea
+// In plugin practice; only very large, unique numbers should be used
 
 // for all events, args[0] will be the full thread line.
 // the following entries will be pieces of useful info in the order of appearance on the line.
@@ -50,6 +65,12 @@
 #define HM_ONHSCONNECT_FUNC     "onHShellConnect"     //    1 = hS version, 2 = mc screen, 3 = mc version
 #define HM_ONHSDISCONNECT_FUNC  "onHShellDisconnect"  //    
 #define HM_ONSHUTDOWNPOST_FUNC  "onServerShutdownPost"//    
+#define HM_ONREHASHFILTER_FUNC  "onRehashFilter"      //
+#define HM_ONCUSTOM_1_FUNC      "onCustom1"           //    Values are defined by the filter
+#define HM_ONCUSTOM_2_FUNC      "onCustom2"           //    Values are defined by the filter
+#define HM_ONCUSTOM_3_FUNC      "onCustom3"           //    Values are defined by the filter
+#define HM_ONCUSTOM_4_FUNC      "onCustom4"           //    Values are defined by the filter
+#define HM_ONCUSTOM_5_FUNC      "onCustom5"           //    Values are defined by the filter
 
 #define FLAG_ADMIN                1    //    a    Generic admin
 #define FLAG_BAN                  2    //    b    Can ban/unban
@@ -161,6 +182,16 @@ struct hmTimer
     std::string args;
 };
 
+struct hmConsoleFilter
+{
+	std::regex filter;	// pattern to match
+	bool blockOut = false;
+	bool blockEvent = false;
+	bool blockHook = false;
+	int event;
+	std::string name;
+};
+
 struct hmGlobal
 {
     std::vector<hmPlayer> players;
@@ -177,6 +208,7 @@ struct hmGlobal
     int hsSocket;
     int logMethod;
     int maxPlayers;
+    std::vector<hmConsoleFilter>* conFilter;
 };
 
 class hmHandle
@@ -299,6 +331,8 @@ void hmLog(std::string data, int logType, std::string logFile);
 int hmProcessTargets(std::string client, std::string target, std::vector<hmPlayer> &targList, int filter);
 bool hmIsPluginLoaded(std::string nameOrPath, std::string version = "");
 std::string hmGetPluginVersion(std::string nameOrPath);
+int hmAddConsoleFilter(std::string name, std::string ptrn, short blocking = HM_BLOCK_OUTPUT, int event = 0);
+int hmRemoveConsoleFilter(std::string name);
 
 #endif
 
