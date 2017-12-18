@@ -1,5 +1,5 @@
 # About
-halfShell and halfMod together create a whole new Minecraft server environment. From adding moderators and admins in vanilla, to very non-vanilla abilities like full game changing mechanics. All possible without any modification to the minecraft server jar file. Both halfShell and halfMod are written to support any version of Minecraft as early as server version `0.1.3` (Alpha 1.0.16_02). However, the included plugins are only written for version `1.12.2`. Regardless... Expect bugs in versions prior to `1.8`. `1.12.2` is the only thoroughly tested version.
+halfShell and halfMod together create a whole new Minecraft server environment. From adding moderators and admins in vanilla, to very non-vanilla abilities like full game changing mechanics. All possible without any modification to the minecraft server jar file. Both halfShell and halfMod are written to support any version of Minecraft as early as server version `0.1.3` (Alpha 1.0.16_02). However, the included plugins are only written for snapshot versions of `1.13`. Regardless... Expect bugs in versions prior to `1.8`. `1.12.2` amd `17w50a` are the only thoroughly tested versions.
 
 Join the halfShell Mod Development Discord server: <https://discord.gg/QKEGRQr>
 
