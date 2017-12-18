@@ -119,6 +119,12 @@ bool hmHandle::load(string pluginPath, hmGlobal *global)
 				hookEvent(HM_ONHSCONNECT,HM_ONHSCONNECT_FUNC);
 				hookEvent(HM_ONHSDISCONNECT,HM_ONHSDISCONNECT_FUNC,false);
 				hookEvent(HM_ONSHUTDOWNPOST,HM_ONSHUTDOWNPOST_FUNC,false);
+				hookEvent(HM_ONREHASHFILTER,HM_ONREHASHFILTER_FUNC,false);
+				hookEvent(HM_ONCUSTOM_1,HM_ONCUSTOM_1_FUNC);
+				hookEvent(HM_ONCUSTOM_2,HM_ONCUSTOM_2_FUNC);
+				hookEvent(HM_ONCUSTOM_3,HM_ONCUSTOM_3_FUNC);
+				hookEvent(HM_ONCUSTOM_4,HM_ONCUSTOM_4_FUNC);
+				hookEvent(HM_ONCUSTOM_5,HM_ONCUSTOM_5_FUNC);
 			}
 		}
 	}
@@ -513,12 +519,12 @@ hmPlayer hmGetPlayerData(string client)
 				}
 				case 3: // join time
 				{
-					temp.join = atoi(gettok(line,2,"=").c_str());
+					temp.join = stoi(gettok(line,2,"="));
 					break;
 				}
 				case 4: // quit time
 				{
-					temp.quit = atoi(gettok(line,2,"=").c_str());
+					temp.quit = stoi(gettok(line,2,"="));
 					break;
 				}
 				case 5: // quit message
@@ -528,7 +534,7 @@ hmPlayer hmGetPlayerData(string client)
 				}
 				case 6: // last death time
 				{
-					temp.death = atoi(gettok(line,2,"=").c_str());
+					temp.death = stoi(gettok(line,2,"="));
 					break;
 				}
 				case 7: // last death message
@@ -709,8 +715,37 @@ string hmGetPluginVersion(string nameOrPath)
     return "";
 }
 
+int hmAddConsoleFilter(string name, string ptrn, short blocking, int event)
+{
+    hmConsoleFilter temp;
+    hmGlobal *global;
+    global = recallGlobal(global);
+    temp.filter = regex(ptrn);
+    temp.event = event;
+    if (blocking & HM_BLOCK_OUTPUT)
+        temp.blockOut = true;
+    if (blocking & HM_BLOCK_EVENT)
+        temp.blockEvent = true;
+    if (blocking & HM_BLOCK_HOOK)
+        temp.blockHook = true;
+    temp.name = name;
+    global->conFilter->push_back(temp);
+    return global->conFilter->size();
+}
 
-
+int hmRemoveConsoleFilter(string name)
+{
+    hmGlobal *global;
+    global = recallGlobal(global);
+    for (auto it = global->conFilter->begin(), ite = global->conFilter->end();it != ite;)
+    {
+        if (it->name == name)
+            it = global->conFilter->erase(it);
+        else
+            ++it;
+    }
+    return global->conFilter->size();
+}
 
 
 
