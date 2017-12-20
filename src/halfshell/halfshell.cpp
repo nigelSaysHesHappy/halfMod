@@ -30,13 +30,14 @@ using namespace std;
 #define MAXCLIENTS	30
 #define MAXSCREENLEN	400
 
-#define MAX_INTERNAL        6
+#define MAX_INTERNAL        7
 #define INTERNAL_RELAY      0
 #define INTERNAL_RELAYTO    1
 #define INTERNAL_RELAYALL   2
 #define INTERNAL_WALL       3
 #define INTERNAL_LIST       4
-#define INTERNAL_VER        5
+#define INTERNAL_RAW        5
+#define INTERNAL_VER        6
 
 int main(int argc , char *argv[])
 {
@@ -70,6 +71,7 @@ int main(int argc , char *argv[])
 	                            "relayall",// Relay a command back to all mods as the server
     	                        "wall",    // Send a message to all mods, note: can be intercepted as a trigger by the mods
     	                        "list",    // Replies to the requesting mod listing the currently connected mods
+    	                        "raw",     // Sends raw text to the requesting mod
     	                        ""         // Replies to the requesting mod with version info
     	                       };
 	
@@ -373,6 +375,11 @@ int main(int argc , char *argv[])
 	                                            temp = temp + "[HS] " + to_string(j) + ":\t" + sockets[j].mark + "\n";
                                         sockets[i].nWrite(temp);
                                         //buffer.clear();
+                                        break;
+                                    }
+                                    case INTERNAL_RAW:
+                                    {
+                                        sockets[i].nWrite(buffer.substr(4 + internals[subcmd].size(),string::npos) + "\n");
                                         break;
                                     }
                                     case INTERNAL_VER:
