@@ -463,7 +463,7 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string c
 	arga = new string[argc];
 	arga[0] = cmd;
 	for (int i = 1;i < argc;i++)
-		arga[i] = getqtok(args,i," ");
+		arga[i] = getqtok(args,i," ",true);
 	int ret = 0, internal;
 	if ((internal = isInternalCmd(cmd)) > -1)
 	{
@@ -621,23 +621,25 @@ int hashConsoleFilters(vector<hmHandle> &plugins, string path)
 	{
 		filters.clear();
 		string line;
-		hmConsoleFilter temp;
 		while (getline(file,line))
 		{
-		    temp.event = stoi(gettok(line,1," "));
-		    if ((line.at(0) == '#') || (temp.event == 0))
+		    hmConsoleFilter temp;
+		    if ((line.at(0) == '#') || (!stringisnum(gettok(line,1," "))))
 		        continue;
-	        if (temp.event & HM_BLOCK_OUTPUT)
+	        temp.event = stoi(gettok(line,1," "));
+	        if (temp.event == 0)
+	            continue;
+	        if ((temp.event & HM_BLOCK_OUTPUT) != 0)
 	        {
 	            temp.event -= HM_BLOCK_OUTPUT;
 	            temp.blockOut = true;
             }
-            if (temp.event & HM_BLOCK_EVENT)
+            if ((temp.event) && ((temp.event & HM_BLOCK_EVENT) != 0))
             {
 	            temp.event -= HM_BLOCK_EVENT;
 	            temp.blockEvent = true;
             }
-            if (temp.event & HM_BLOCK_HOOK)
+            if ((temp.event) && ((temp.event & HM_BLOCK_HOOK) != 0))
             {
 	            temp.event -= HM_BLOCK_HOOK;
 	            temp.blockHook = true;

@@ -274,7 +274,7 @@ int numqtok(string tokens, string delim)
 	return y;
 }
 
-string getqtok(string tokens, int tok, string delim)
+string getqtok(string tokens, int tok, string delim, bool stripQuotes)
 {
     int x = 1, y = 0, z = delim.size(), c = numtok(tokens,delim);
     string ret;
@@ -287,6 +287,8 @@ string getqtok(string tokens, int tok, string delim)
             open = !open;
             if ((open) && (tokens.find("\"",a+1,1) == string::npos))
                 open = false;
+            if (stripQuotes)
+                continue;
         }
         if ((!open) && (tokens.compare(a,z,delim) == 0)) x++;
         if (x == tok) y = x;
