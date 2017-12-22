@@ -22,7 +22,7 @@ string gettok(string tokens, int tok, string delim);
 int isin(string text, string subtext, int pos = 0);
 string strremove(string text, string subtext);
 int numqtok(string tokens, string delim);
-string getqtok(string tokens, int tok, string delim, bool stripQuotes = false);
+string getqtok(string tokens, int tok, string delim);
 bool iswm(string text, string subtext);
 bool stringisalpha(string text);
 bool stringisalnum(string text);
