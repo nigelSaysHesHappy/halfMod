@@ -280,6 +280,14 @@ int main(int argc , char *argv[])
 						{		// handshake
 							cout<<"Client <"<<i<<"> is identifying as: "<<buffer<<endl;
 							sockets[i].mark = buffer;
+							ifstream lateLoad("listo.nada");
+                            if (lateLoad.is_open())
+                            {
+                                lateLoad.close();
+                                remove("listo.nada");
+                                temp = "screen -S " + screen + " -p 0 -X stuff 'list\r'";
+                                system(temp.c_str());
+                            }
 						}
 						else
 						{
