@@ -448,6 +448,18 @@ hmPlayer hmGetPlayerInfo(string client)
 	return hmPlayer();
 }
 
+vector<hmPlayer>::iterator hmGetPlayerIterator(string client)
+{
+	client = stripFormat(lower(client));
+	hmGlobal *global;
+	global = recallGlobal(global);
+	vector<hmPlayer>::iterator ite = global->players.end();
+	for (vector<hmPlayer>::iterator it = global->players.begin();it != ite;++it)
+		if (stripFormat(lower(it->name)) == client)
+			return it;
+	return ite;
+}
+
 string hmGetPlayerUUID(string client)
 {
 	return hmGetPlayerInfo(stripFormat(lower(client))).uuid;
@@ -681,7 +693,7 @@ int hmProcessTargets(string client, string target, vector<hmPlayer> &targList, i
 		}
 	}
 	if ((c == 6) && (temp.size() > 0))
-		targList.push_back(temp[rand() % int(temp.size())]);
+		targList.push_back(temp[randint(0,9999999) % int(temp.size())]);
 	return targList.size();
 }
 
@@ -747,6 +759,32 @@ int hmRemoveConsoleFilter(string name)
     return global->conFilter->size();
 }
 
+int hmWritePlayerDat(string client, string data, string ignore, bool ifNotPresent)
+{
+    string filename = "./halfMod/userdata/" + stripFormat(lower(client)) + ".dat";
+    fstream file (filename,ios_base::in);
+    string line, lines = data;
+    if (file.is_open())
+    {
+        while (getline(file,line))
+        {
+            if ((ifNotPresent) && (line == data))
+                return -1;
+            if (!istok(ignore,gettok(line,1,"="),"="))
+                lines = appendtok(lines,line,"\n");
+        }
+        file.close();
+    }
+    file.open(filename,ios_base::out|ios_base::trunc);
+    if (file.is_open())
+    {
+        file<<lines;
+        file.close();
+    }
+    else
+        return 1;
+    return 0;
+}
 
 
 
