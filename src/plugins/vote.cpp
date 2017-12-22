@@ -2,13 +2,13 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.0"
+#define VERSION "v0.1.2"
 
 class voteInfo
 {
     public:
         voteInfo();
-        void set(string agenda, string candis[], int size);
+        void set(string agenda, string candis[], int size, string cmd = "");
         ~voteInfo();
         void reset();
         string ballad;
@@ -18,6 +18,7 @@ class voteInfo
         int quantity;
         int voteCount;
         //int (*outcome)(string,int[],int);
+        string outcome;
 };
 
 voteInfo vote;
@@ -34,6 +35,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
                       "http://the.ballad.justca.me/in/your/box");
     handle.regConsoleCmd("hm_vote","voteCmd","Cast a vote");
     handle.regAdminCmd("hm_createvote","createVoteCmd",FLAG_VOTE,"Initiate a vote");
+    handle.regAdminCmd("hm_voterun","runVoteCmd",FLAG_VOTE,"Initiate a vote to run a command");
 }
 
 int onPlayerDisconnect(hmHandle &handle, smatch args)
@@ -126,7 +128,7 @@ int voteCmd(hmHandle &handle, string client, string args[], int argc)
     {
         if (stripFormat(lower(it->name)) == client)
         {
-            it->custom = addtok(it->custom,"vote=" + to_string(can),"\n");
+            it->custom = appendtok(it->custom,"vote=" + to_string(can),"\n");
             break;
         }
     }
@@ -170,7 +172,41 @@ int createVoteCmd(hmHandle &handle, string client, string args[], int argc)
         vote.set(args[1],args+2,argc-2);
     handle.createTimer("voteTimer",90,"tallyFunc");
     hmSendMessageAll("The polls have opened! Type '!vote #' to cast your vote");
-    hmSendMessageAll(" " + vote.ballad + "?");
+    hmSendMessageAll(" " + vote.ballad);
+    for (int i = 0;i < vote.quantity;i++)
+        hmSendMessageAll("  " + to_string(i+1) + ". " + vote.candidates[i]);
+    return 0;
+}
+
+int runVoteCmd(hmHandle &handle, string client, string args[], int argc)
+{
+    if (argc < 3)
+    {
+        hmReplyToClient(client,"Usage: " + args[0] + " <command> <agenda>");
+        hmReplyToClient(client,"Usage: " + args[0] + " <command> <agenda> <candidate 1> <candidate 2> [more candidates ...]");
+        return 1;
+    }
+    if (argc == 4)
+    {
+        hmReplyToClient(client,"Usage: " + args[0] + " <command> <agenda>");
+        hmReplyToClient(client,"Usage: " + args[0] + " <command> <agenda> <candidate 1> <candidate 2> [more candidates ...]");
+        return 1;
+    }
+    if (vote.quantity > 1)
+    {
+        hmReplyToClient(client,"There is already a vote in progress.");
+        return 1;
+    }
+    if (argc < 4)
+    {
+        string yesno[] = {"Yes","No"};
+        vote.set(args[2],yesno,2,args[1]);
+    }
+    else
+        vote.set(args[2],args+3,argc-3,args[1]);
+    handle.createTimer("voteTimer",90,"tallyFunc");
+    hmSendMessageAll("The polls have opened! Type '!vote #' to cast your vote");
+    hmSendMessageAll(" " + vote.ballad);
     for (int i = 0;i < vote.quantity;i++)
         hmSendMessageAll("  " + to_string(i+1) + ". " + vote.candidates[i]);
     return 0;
@@ -207,7 +243,11 @@ int tallyFunc(hmHandle &handle, string args)
         float percent = 100.0 / float(vote.voteCount) * float(temp);
         string msg = "'" + vote.candidates[winners[0]] + "'";
         if (winners.size() == 1)
+        {
             hmSendMessageAll(data2str("The polls have closed! %s wins with %.2f%% of the votes!",msg.c_str(),percent));
+            if (winners[0] < numtok(vote.outcome,";"))
+                hmServerCommand(gettok(vote.outcome,winners[0]+1,";"));
+        }
         else
         {
             if (winners.size() == 2)
@@ -232,9 +272,10 @@ voteInfo::voteInfo()
 {
     voteCount = 0;
     quantity = 0;
+    outcome = "";
 }
 
-void voteInfo::set(string agenda, string candis[], int size)
+void voteInfo::set(string agenda, string candis[], int size, string cmd)
 {
     ballad = agenda;
     candidates = new string[size];
@@ -249,6 +290,7 @@ void voteInfo::set(string agenda, string candis[], int size)
         votes[i] = 0;
     quantity = size;
     voteCount = 0;
+    outcome = cmd;
 }
 
 void voteInfo::reset()
@@ -256,6 +298,7 @@ void voteInfo::reset()
     ballad.clear();
     quantity = 0;
     voteCount = 0;
+    outcome = "";
     delete[] candidates;
     delete[] voters;
     delete[] votes;
