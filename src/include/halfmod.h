@@ -320,6 +320,7 @@ void hmSendCommandFeedback(std::string client, std::string message);
 void hmSendMessageAll(std::string message);
 bool hmIsPlayerOnline(std::string client);
 hmPlayer hmGetPlayerInfo(std::string client);
+std::vector<hmPlayer>::iterator hmGetPlayerIterator(std::string client);
 std::string hmGetPlayerUUID(std::string client);
 std::string hmGetPlayerIP(std::string client);
 int hmGetPlayerFlags(std::string client);
@@ -333,6 +334,7 @@ bool hmIsPluginLoaded(std::string nameOrPath, std::string version = "");
 std::string hmGetPluginVersion(std::string nameOrPath);
 int hmAddConsoleFilter(std::string name, std::string ptrn, short blocking = HM_BLOCK_OUTPUT, int event = 0);
 int hmRemoveConsoleFilter(std::string name);
+int hmWritePlayerDat(std::string client, std::string data, std::string ignore, bool ifNotPresent = false);
 
 #endif
 
