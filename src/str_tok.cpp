@@ -158,8 +158,9 @@ int numtok(string tokens, string delim)
 string gettok(string tokens, int tok, string delim)
 {
      int x = 1, y = 0, z = delim.size(), c = numtok(tokens,delim);
-     string ret;
+     string ret = "";
      if (tok < 0) tok = c+tok+1;
+     if ((tok < 1) || (tok > c)) return ret;
      //while (ret.size() < 1)
      //{
          for (size_t a = 0; a < tokens.size(); a++)
@@ -274,7 +275,7 @@ int numqtok(string tokens, string delim)
 	return y;
 }
 
-string getqtok(string tokens, int tok, string delim, bool stripQuotes)
+string getqtok(string tokens, int tok, string delim)
 {
     int x = 1, y = 0, z = delim.size(), c = numtok(tokens,delim);
     string ret;
@@ -287,8 +288,6 @@ string getqtok(string tokens, int tok, string delim, bool stripQuotes)
             open = !open;
             if ((open) && (tokens.find("\"",a+1,1) == string::npos))
                 open = false;
-            if (stripQuotes)
-                continue;
         }
         if ((!open) && (tokens.compare(a,z,delim) == 0)) x++;
         if (x == tok) y = x;
@@ -298,8 +297,10 @@ string getqtok(string tokens, int tok, string delim, bool stripQuotes)
             ret.append(tokens,a,1);
         }
     }
-    if (ret.compare(0,z,delim) == 0) return ret.erase(0,z);
-    else return ret;
+    if (ret.compare(0,z,delim) == 0) ret = ret.erase(0,z);
+    if ((ret.at(0) == '"') && (ret.at(ret.size()-1) == '"'))
+        return ret.substr(1,ret.size()-2);
+    return ret;
 }
 
 /*string getqtok(string tokens, int tok, string delim)

@@ -75,33 +75,6 @@ int findPlugins(const char *dir, vector<string> &paths)
 	return paths.size();
 }
 
-int writePlayerDat(string client, string data, string ignore, bool ifNotPresent)
-{
-    string filename = "./halfMod/userdata/" + stripFormat(lower(client)) + ".dat";
-    fstream file (filename,ios_base::in);
-    string line, lines = data;
-    if (file.is_open())
-    {
-        while (getline(file,line))
-        {
-            if ((ifNotPresent) && (line == data))
-                return 0;
-            if (!istok(ignore,gettok(line,1,"=")," "))
-                lines = lines + "\n" + line;
-        }
-        file.close();
-    }
-    file.open(filename,ios_base::out|ios_base::trunc);
-    if (file.is_open())
-    {
-        file<<lines;
-        file.close();
-    }
-    else
-        return 1;
-    return 0;
-}
-
 // in charge of populating the hmGlobal struct and controlling console output
 // I said f it and made it handle everything.
 int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
@@ -210,7 +183,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
                         ptrn = "([^\\s\\[]+)\\[/([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}):([0-9]{1,})\\] logged in.*";
                         if (regex_match(thread,ml,ptrn))
                         {
-						    writePlayerDat(ml[1].str(),"ip=" + ml[2].str() + "\n" + data2str("join=%li",time(NULL)),"ip join");
+						    hmWritePlayerDat(ml[1].str(),"ip=" + ml[2].str() + "\n" + data2str("join=%li",time(NULL)),"ip=join");
 						    if (processEvent(plugins,HM_ONCONNECT,ml))
                                 return 1;
                         }
@@ -282,7 +255,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
 									                ptrn = "(\\S+) lost connection: (.*)";
 									                if (regex_match(thread,ml,ptrn))
 									                {
-									                    writePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit quitmsg");
+									                    hmWritePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit=quitmsg");
 									                    if (processEvent(plugins,HM_ONDISCONNECT,ml))
 										                    return 1;
 										            }
@@ -332,7 +305,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
 											                            {
 											                                string client = stripFormat(lower(ml[1].str())), msg = ml[2].str();
 											                                time_t cTime = time(NULL);
-												                            writePlayerDat(client,data2str("death=%li",cTime) + "\ndeathmsg=" + msg,"death deathmsg");
+												                            hmWritePlayerDat(client,data2str("death=%li",cTime) + "\ndeathmsg=" + msg,"death=deathmsg");
 												                            for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
 												                            {
 												                                if (stripFormat(lower(it->name)) == client)
@@ -382,7 +355,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
                     ptrn = "\\[User Authenticator #([0-9]{1,})/INFO\\]: UUID of player (\\S+) is (.*)";
                     if (regex_match(thread,ml,ptrn))
                     {
-                        writePlayerDat(ml[2].str(),"uuid=" + ml[3].str(),"uuid",true);
+                        hmWritePlayerDat(ml[2].str(),"uuid=" + ml[3].str(),"uuid",true);
                         if (processEvent(plugins,HM_ONAUTH,ml))
                             return 1;
                     }
@@ -463,7 +436,7 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string c
 	arga = new string[argc];
 	arga[0] = cmd;
 	for (int i = 1;i < argc;i++)
-		arga[i] = getqtok(args,i," ",true);
+		arga[i] = getqtok(args,i," ");
 	int ret = 0, internal;
 	if ((internal = isInternalCmd(cmd)) > -1)
 	{
@@ -624,7 +597,7 @@ int hashConsoleFilters(vector<hmHandle> &plugins, string path)
 		while (getline(file,line))
 		{
 		    hmConsoleFilter temp;
-		    if ((line.at(0) == '#') || (!stringisnum(gettok(line,1," "))))
+		    if ((line.size() < 3) || (line.at(0) == '#') || (!stringisnum(gettok(line,1," "))))
 		        continue;
 	        temp.event = stoi(gettok(line,1," "));
 	        if (temp.event == 0)
