@@ -3,7 +3,7 @@
 #include <fstream>
 using namespace std;
 
-#define VERSION "v0.1.1"
+#define VERSION "v0.1.2"
 
 bool enabled = false;
 int interval = 1;
@@ -263,7 +263,7 @@ void handlePlayer(hmHandle &handle, vector<hmPlayer>::iterator it)
             break;
         }
     }
-    if (!exists)
+    if ((!exists) && (enabled))
     {
         handle.hookPattern("getArmor:" + stripClient,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + stripClient + " has the following entity data: \\{.*Inventory: \\[(.*)\\].*\\}$","getArmor");
         hmSendRaw("data get entity " + stripClient);
