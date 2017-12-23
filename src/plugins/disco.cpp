@@ -3,11 +3,23 @@
 #include <fstream>
 using namespace std;
 
-#define VERSION "v0.1.0"
+#define VERSION "v0.1.1"
 
 bool enabled = false;
 int interval = 1;
 vector<string> readyPlayers;
+#define MAXMUSIC    9
+const string music[MAXMUSIC] = {
+    "record.blocks",
+    "record.cat",
+    "record.chirp",
+    "record.far",
+    "record.mall",
+    "record.mellohi",
+    "record.stal",
+    "record.strad",
+    "music.credits"
+};
 
 void handlePlayer(hmHandle &handle, vector<hmPlayer>::iterator it);
 
@@ -149,6 +161,7 @@ int toggleDisco(hmHandle &handle, string client, string args[], int argc)
         }
         handle.createTimer("discoTime",interval,"discoTime");
         hmAddConsoleFilter("disco","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Replaced a slot on [^ ]+ with \\[Leather (Boots|Pants|Tunic|Cap)\\]$");
+        hmSendRaw("execute as @a at @s run playsound minecraft:" + music[randint(0,MAXMUSIC)] + " record @s ~ ~ ~ 100");
         hmSendMessageAll("All aboard the disco train!");
     }
     else
@@ -167,6 +180,7 @@ int getArmor(hmHandle &handle, hmHook hook, smatch args)
     string inv = args[1].str(), stripClient = stripFormat(gettok(hook.name,2,":"));
     regex ptrn ("\\{Slot: (100b|101b|102b|103b)");
     smatch ml;
+    auto it = hmGetPlayerIterator(stripClient);
     if (regex_search(inv,ml,ptrn))
     {
         hmSendRaw("replaceitem entity " + stripClient + " armor.feet minecraft:air\nreplaceitem entity " + stripClient + " armor.legs minecraft:air\nreplaceitem entity " + stripClient + " armor.chest minecraft:air\nreplaceitem entity " + stripClient + " armor.head minecraft:air");
@@ -176,12 +190,14 @@ int getArmor(hmHandle &handle, hmHook hook, smatch args)
             inv = ml.prefix().str();
         ptrn = "\\{Slot: [0-9]+b, ?";
         inv = "disco=" + regex_replace(inv,ptrn,"{");
-        auto it = hmGetPlayerIterator(stripClient);
         if (hmWritePlayerDat(stripClient,inv,"disco",true) > -1)
             it->custom = appendtok(it->custom,inv,"\n");
     }
     else
+    {
         hmWritePlayerDat(stripClient,"disco=null","disco",true);
+        it->custom = appendtok(it->custom,"disco=null","\n");
+    }
     readyPlayers.push_back(stripClient);
     handle.unhookPattern(hook.name);
     return 1;
