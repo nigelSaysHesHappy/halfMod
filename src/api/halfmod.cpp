@@ -82,21 +82,22 @@ bool hmHandle::load(string pluginPath, hmGlobal *global)
 {
 	if (!loaded)
 	{
-		module = dlopen(pluginPath.c_str(), RTLD_LAZY);
+		module = dlopen(pluginPath.c_str(), RTLD_LAZY|RTLD_GLOBAL);
 		if (!module)
 			cerr<<"Error loading plugin \""<<pluginPath<<"\" "<<dlerror()<<endl;
 		else
 		{
 			modulePath = pluginPath;
 			char *error;
-			void (*start)(hmHandle&,hmGlobal*);
+			int (*start)(hmHandle&,hmGlobal*);
 			*(void **) (&start) = dlsym(module, HM_ONPLUGINSTART_FUNC);
 			if ((error = dlerror()) != NULL)
 				fputs(error, stderr);
 			else
 			{
     			API_VER = API_VERSION;
-				(*start)(*this,global);
+				if ((*start)(*this,global))
+				    return false;
 				pluginName = deltok(deltok(deltok(deltok(modulePath,1,"/"),1,"/"),1,"/"),-1,".");
 				global->pluginList.push_back({modulePath,pluginName,info.version});
 				loaded = true;
