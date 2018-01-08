@@ -10,6 +10,7 @@ extern vector<hmConsoleFilter> filters;
 int readSock(int sock, string &buffer);
 int findPlugins(const char *dir, vector<string> &paths);
 int loadPlugin(hmGlobal &info, vector<hmHandle> &p, string path);
+int loadExtension(hmGlobal &info, string path);
 void loadPlayerData(hmGlobal &info, string name);
 int hashAdmins(hmGlobal &info, string path);
 int hashConsoleFilters(vector<hmHandle> &plugins, string path);

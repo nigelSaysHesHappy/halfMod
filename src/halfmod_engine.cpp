@@ -112,6 +112,10 @@ int main(int argc, char *argv[])
 	vector<string> pluginPaths;
 	vector<hmHandle> plugins;
 	hashAdmins(serverInfo,ADMINCONF);
+	findPlugins("./halfMod/extensions/",pluginPaths);
+	for (int i = 0, j = pluginPaths.size();i < j;i++)
+	    loadExtension(serverInfo,pluginPaths[i]);
+    pluginPaths.clear();
 //	plugins.resize(findPlugins("./halfMod/plugins/",pluginPaths));
 	findPlugins("./halfMod/plugins/",pluginPaths);
 	for (int i = 0, j = pluginPaths.size();i < j;i++)
@@ -152,6 +156,8 @@ int main(int argc, char *argv[])
 			(char *)&serv_addr.sin_addr.s_addr,
 			server->h_length);
 		serv_addr.sin_port = htons(port);
+		serverInfo.hsSocket = -1;
+		serverInfo.mcScreen.clear();
 		while (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
 		{
 			cerr<<"No connection to halfShell . . . Retrying in 1 second . . ."<<endl;

@@ -43,6 +43,38 @@ int loadPlugin(hmGlobal &info, vector<hmHandle> &plugins, string path)
 	return 0;
 }
 
+int loadExtension(hmGlobal &info, string path)
+{
+	for (auto it = info.extensions.begin(), ite = info.extensions.end();it != ite;++it)
+	{
+		if (it->getPath() == path)
+		{
+			cerr<<"Extension \""<<path<<"\" is already loaded."<<endl;
+			return 3;
+		}
+	}
+	hmExtension temp;
+	if (!temp.load(path,&info))
+	{
+		cerr<<"Error loading extension \""<<path<<"\" . . .\n";
+		return 1;
+	}
+	else
+	{
+		if (temp.getAPI() != API_VERSION)
+		{
+			cout<<"Error extension \""<<path<<"\" was compiled with a different version of the API ("<<temp.getAPI()<<") . . . Recompile with "<<API_VERSION<<".\n";
+			return 2;
+		}
+		else
+		{
+			info.extensions.push_back(temp);
+			cout<<"Extension \""<<info.extensions[info.extensions.size()-1].getInfo().name<<"\" loaded . . .\n";
+		}
+	}
+	return 0;
+}
+
 int readSock(int sock, string &buffer)
 {
 	buffer = "";
@@ -189,137 +221,158 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
                         }
                         else
                         {
-                            ptrn = "Starting minecraft server version (.+)";
+                            ptrn = "TextComponent\\{.*text='([^\\s']+)'.*\\}\\[/([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}):([0-9]{1,})\\] logged in.*";
                             if (regex_match(thread,ml,ptrn))
                             {
-                                info.mcVer = ml[1].str();
-                                info.players.clear();
+						        hmWritePlayerDat(ml[1].str(),"ip=" + ml[2].str() + "\n" + data2str("join=%li",time(NULL)),"ip=join");
+						        if (processEvent(plugins,HM_ONCONNECT,ml))
+                                    return 1;
                             }
                             else
                             {
-                                ptrn = "Preparing level (.+)";
+                                ptrn = "Starting minecraft server version (.+)";
                                 if (regex_match(thread,ml,ptrn))
-                                    info.world = ml[1].str();
+                                {
+                                    info.mcVer = ml[1].str();
+                                    info.players.clear();
+                                }
                                 else
                                 {
-                                    ptrn = "Done \\((.*)\\)!.*";
+                                    ptrn = "Preparing level (.+)";
                                     if (regex_match(thread,ml,ptrn))
+                                        info.world = ml[1].str();
+                                    else
                                     {
-                                        hmSendRaw("list");
-                                        if (info.mcVer == "")
-					                        cout<<"Minecraft version undefined."<<endl;
-				                        else
-				                            cout<<"Minecraft version found: "<<info.mcVer<<endl;
-				                        if (info.world == "")
-					                        cout<<"World undefined."<<endl;
-				                        else
-				                            cout<<"World defined as: "<<info.world<<endl;
-				                        internalExec(info,plugins,"","#SERVER","autoexec");	// on world load setup
-				                        internalExec(info,plugins,"","#SERVER","startup");	// this will contain timed unbans if the server was offline when they expired
-				                        remove("./halfMod/configs/startup.cfg");	// delete startup
-				                        if (processEvent(plugins,HM_ONWORLDINIT,ml))
-					                        return 1;
-					                }
-					                else
-					                {
-					                    ptrn = "There are ([0-9]{1,})(/| of a max )([0-9]{1,}) players online:\\s*(.*)";
-					                    if (regex_match(thread,ml,ptrn))
+                                        ptrn = "Done \\((.*)\\)!.*";
+                                        if (regex_match(thread,ml,ptrn))
+                                        {
+                                            hmSendRaw("list");
+                                            if (info.mcVer == "")
+					                            cout<<"Minecraft version undefined."<<endl;
+				                            else
+				                                cout<<"Minecraft version found: "<<info.mcVer<<endl;
+				                            if (info.world == "")
+					                            cout<<"World undefined."<<endl;
+				                            else
+				                                cout<<"World defined as: "<<info.world<<endl;
+				                            internalExec(info,plugins,"","#SERVER","autoexec");	// on world load setup
+				                            internalExec(info,plugins,"","#SERVER","startup");	// this will contain timed unbans if the server was offline when they expired
+				                            remove("./halfMod/configs/startup.cfg");	// delete startup
+				                            if (processEvent(plugins,HM_ONWORLDINIT,ml))
+					                            return 1;
+					                    }
+					                    else
 					                    {
-					                        info.players.clear();
-					                        if (stoi(ml[1].str()) > 0)
+					                        ptrn = "There are ([0-9]{1,})(/| of a max )([0-9]{1,}) players online:\\s*(.*)";
+					                        if (regex_match(thread,ml,ptrn))
 					                        {
-					                            if (ml[2].str().size() < 2)
-    						                        catchLine = true;
-						                        else
-						                        {
-						                            string users = strremove(ml[4].str(),",");
-		                                            for (int i = 1, j = numtok(users," ");i <= j;i++)
-			                                            loadPlayerData(info,gettok(users,i," "));
-					                            }
-				                            }
-						                    info.maxPlayers = stoi(ml[3].str());
-						                }
-						                else
-						                {
-						                    ptrn = "(\\S+) joined the game";
-						                    if (regex_match(thread,ml,ptrn))
+					                            info.players.clear();
+					                            if (stoi(ml[1].str()) > 0)
+					                            {
+					                                if (ml[2].str().size() < 2)
+        						                        catchLine = true;
+						                            else
+						                            {
+						                                string users = strremove(ml[4].str(),",");
+		                                                for (int i = 1, j = numtok(users," ");i <= j;i++)
+			                                                loadPlayerData(info,gettok(users,i," "));
+					                                }
+				                                }
+						                        info.maxPlayers = stoi(ml[3].str());
+						                    }
+						                    else
 						                    {
-						                        loadPlayerData(info,ml[1].str());
-								                if (processEvent(plugins,HM_ONJOIN,ml))
-									                return 1;
-									        }
-									        else
-									        {
-									            if (hmIsPlayerOnline(gettok(thread,1," ")))
+						                        ptrn = "(\\S+) joined the game";
+						                        if (regex_match(thread,ml,ptrn))
+						                        {
+						                            loadPlayerData(info,ml[1].str());
+								                    if (processEvent(plugins,HM_ONJOIN,ml))
+									                    return 1;
+									            }
+									            else
 									            {
-									                ptrn = "(\\S+) lost connection: (.*)";
+									                //[01:17:32] [Server thread/INFO]: TextComponent{text='nigathan', siblings=[], style=Style{hasParent=false, color=null, bold=null, italic=null, underlined=null, obfuscated=null, clickEvent=null, hoverEvent=null, insertion=null}} lost connection: Disconnected
+									                ptrn = "TextComponent\\{.*text='([^\\s']+)'.*\\} lost connection: (.*)";
 									                if (regex_match(thread,ml,ptrn))
 									                {
-									                    hmWritePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit=quitmsg");
-									                    if (processEvent(plugins,HM_ONDISCONNECT,ml))
-										                    return 1;
-										            }
-										            else
-										            {
-										                ptrn = "(\\S+) left the game";
-										                if (regex_match(thread,ml,ptrn))
+									                    if (hmIsPlayerOnline(ml[1].str()))
+									                    {
+									                        hmWritePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit=quitmsg");
+									                        if (processEvent(plugins,HM_ONDISCONNECT,ml))
+										                        return 1;
+										                }
+									                }
+									                else if (hmIsPlayerOnline(gettok(thread,1," ")))
+									                {
+									                    ptrn = "(\\S+) lost connection: (.*)";
+									                    if (regex_match(thread,ml,ptrn))
+									                    {
+									                        hmWritePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit=quitmsg");
+									                        if (processEvent(plugins,HM_ONDISCONNECT,ml))
+										                        return 1;
+										                }
+										                else
 										                {
-										                    for (auto it = info.players.begin();it != info.players.end();)
+										                    ptrn = "(\\S+) left the game";
+										                    if (regex_match(thread,ml,ptrn))
 										                    {
-											                    if (stripFormat(lower(it->name)) == stripFormat(lower(ml[1].str())))
-												                    info.players.erase(it);
-											                    else
-												                    ++it;
-										                    }
-										                    if (processEvent(plugins,HM_ONPART,ml))
-											                    return 1;
-											            }
-											            else
-											            {
-											                ptrn = "(\\S+) has made the advancement (.*)";
-											                if (regex_match(thread,ml,ptrn))
-											                {
-											                    if (processEvent(plugins,HM_ONADVANCE,ml))
+										                        for (auto it = info.players.begin();it != info.players.end();)
+										                        {
+											                        if (stripFormat(lower(it->name)) == stripFormat(lower(ml[1].str())))
+												                        info.players.erase(it);
+											                        else
+												                        ++it;
+										                        }
+										                        if (processEvent(plugins,HM_ONPART,ml))
 											                        return 1;
 											                }
 											                else
 											                {
-											                    ptrn = "(\\S+) has reached the goal (.*)";
+											                    ptrn = "(\\S+) has made the advancement (.*)";
 											                    if (regex_match(thread,ml,ptrn))
 											                    {
-											                        if (processEvent(plugins,HM_ONGOAL,ml))
+											                        if (processEvent(plugins,HM_ONADVANCE,ml))
 											                            return 1;
 											                    }
 											                    else
 											                    {
-											                        ptrn = "(\\S+) has completed the challenge (.*)";
+											                        ptrn = "(\\S+) has reached the goal (.*)";
 											                        if (regex_match(thread,ml,ptrn))
 											                        {
-											                            if (processEvent(plugins,HM_ONCHALLENGE,ml))
+											                            if (processEvent(plugins,HM_ONGOAL,ml))
 											                                return 1;
 											                        }
 											                        else
 											                        {
-											                            ptrn = "(\\S+) (.+)";
+											                            ptrn = "(\\S+) has completed the challenge (.*)";
 											                            if (regex_match(thread,ml,ptrn))
 											                            {
-											                                string client = stripFormat(lower(ml[1].str())), msg = ml[2].str();
-											                                time_t cTime = time(NULL);
-												                            hmWritePlayerDat(client,data2str("death=%li",cTime) + "\ndeathmsg=" + msg,"death=deathmsg");
-												                            for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
-												                            {
-												                                if (stripFormat(lower(it->name)) == client)
+											                                if (processEvent(plugins,HM_ONCHALLENGE,ml))
+											                                    return 1;
+											                            }
+											                            else
+											                            {
+											                                ptrn = "(\\S+) (.+)";
+											                                if (regex_match(thread,ml,ptrn))
+											                                {
+											                                    string client = stripFormat(lower(ml[1].str())), msg = ml[2].str();
+											                                    time_t cTime = time(NULL);
+												                                hmWritePlayerDat(client,data2str("death=%li",cTime) + "\ndeathmsg=" + msg,"death=deathmsg");
+												                                for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
 												                                {
-												                                    it->death = cTime;
-												                                    it->deathmsg = msg;
-												                                    break;
+												                                    if (stripFormat(lower(it->name)) == client)
+												                                    {
+												                                        it->death = cTime;
+												                                        it->deathmsg = msg;
+												                                        break;
+												                                    }
 												                                }
-												                            }
-												                            if (processEvent(plugins,HM_ONDEATH,ml))
-													                            return 1;
+												                                if (processEvent(plugins,HM_ONDEATH,ml))
+													                                return 1;
+													                        }
 													                    }
 													                }
-													            }
+												                }
 													        }
 													    }
 													}
@@ -651,6 +704,8 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, string caller, strin
 		hmReplyToClient(caller,"Usage: " + args[0] + " plugins load <plugin>");
 		hmReplyToClient(caller,"Usage: " + args[0] + " plugins unload <plugin>");
 		hmReplyToClient(caller,"Usage: " + args[0] + " plugins reload <plugin>");
+		hmReplyToClient(caller,"Usage: " + args[0] + " extensions list");
+		hmReplyToClient(caller,"Usage: " + args[0] + " extensions info <extension>");
 	}
 	else
 	{
@@ -810,6 +865,42 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, string caller, strin
 				}
 			}
 		}
+		else if (args[1] + " " + args[2] == "extensions list")
+		{
+		    hmReplyToClient(caller,"The following extensions are loaded:");
+			for (auto it = global.extensions.begin(), ite = global.extensions.end();it != ite;++it)
+			{
+				hmReplyToClient(caller,data2str("[%i] %s identifies as '%s'",n,it->getExtension().c_str(),it->getInfo().name.c_str()));
+				n++;
+			}
+	    }
+	    else if (args[1] + " " + args[2] == "extensions info")
+		{
+		    if (argc < 4)
+				hmReplyToClient(caller,"Usage: " + args[0] + " extensions info <extension>");
+			else
+			{
+				bool found = false;
+				for (auto it = global.extensions.begin(), ite = global.extensions.end();it != ite;++it)
+				{
+					if ((it->getExtension() == args[3]) || (it->getPath() == args[3]) || ((stringisnum(args[3],0)) && (atoi(args[3].c_str()) == n)))
+					{
+						found = true;
+						hmReplyToClient(caller,data2str("[%i] Extension %s:",n,it->getExtension().c_str()));
+						hmReplyToClient(caller,"    Path   : " + it->getPath());
+						hmInfo temp = it->getInfo();
+						hmReplyToClient(caller,"    Name   : " + temp.name);
+						hmReplyToClient(caller,"    Author : " + temp.author);
+						hmReplyToClient(caller,"    Desc   : " + temp.description);
+						hmReplyToClient(caller,"    Version: " + temp.version);
+						hmReplyToClient(caller,"    Url    : " + temp.url);
+					}
+					n++;
+				}
+				if (!found)
+					hmReplyToClient(caller,"Could not find any loaded extensions for the given criteria.");
+			}
+	    }
 		else
 		{
 			hmReplyToClient(caller,"Usage: " + args[0] + " plugins list");
@@ -817,6 +908,8 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, string caller, strin
 			hmReplyToClient(caller,"Usage: " + args[0] + " plugins load <plugin>");
 			hmReplyToClient(caller,"Usage: " + args[0] + " plugins unload <plugin>");
 			hmReplyToClient(caller,"Usage: " + args[0] + " plugins reload <plugin>");
+			hmReplyToClient(caller,"Usage: " + args[0] + " extensions list");
+    		hmReplyToClient(caller,"Usage: " + args[0] + " extensions info <extension>");
 		}
 	}
 	return 0;

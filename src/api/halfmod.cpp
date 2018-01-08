@@ -338,6 +338,205 @@ int hmHandle::totalEvents()
 	return events.size();
 }
 
+hmExtension::hmExtension()
+{
+	loaded = false;
+}
+
+hmExtension::hmExtension(string extensionPath, hmGlobal *global)
+{
+	loaded = false;
+	load(extensionPath,global);
+}
+
+void hmExtension::unload()
+{
+	if (loaded)
+	{
+		void (*end)(hmExtension&);
+		*(void **) (&end) = dlsym(module, "onExtensionUnload");
+		if (dlerror() == NULL)
+			(*end)(*this);
+		loaded = false;
+		dlclose(module);
+	}
+}
+
+bool hmExtension::load(string extensionPath, hmGlobal *global)
+{
+	if (!loaded)
+	{
+		module = dlopen(extensionPath.c_str(), RTLD_NOW|RTLD_GLOBAL);
+		if (!module)
+			cerr<<"Error loading extension \""<<extensionPath<<"\" "<<dlerror()<<endl;
+		else
+		{
+			modulePath = extensionPath;
+			char *error;
+			int (*start)(hmExtension&,hmGlobal*);
+			*(void **) (&start) = dlsym(module, "onExtensionLoad");
+			if ((error = dlerror()) != NULL)
+				fputs(error, stderr);
+			else
+			{
+    			API_VER = API_VERSION;
+				if ((*start)(*this,global))
+				    return false;
+				extensionName = deltok(deltok(deltok(deltok(modulePath,1,"/"),1,"/"),1,"/"),-1,".");
+				loaded = true;
+			}
+		}
+	}
+	return loaded;
+}
+
+void* hmExtension::getFunc(string func)
+{
+    if ((!loaded) || (!module))
+        return NULL;
+    return dlsym(module, func.c_str());
+}
+
+/*void* hmExtension::getFunc(string func)
+{
+    if ((!loaded) || (!module))
+        return NULL;
+    char *error;
+    void *ptr;
+    *(void **) (&ptr) = dlsym(module, func.c_str());
+    if ((error = dlerror()) != NULL)
+    {
+        fputs(error, stderr);
+        return NULL;
+    }
+    return ptr;
+}*/
+/*int hmExtension::getFunc(int *ptr, string func)
+{
+    if ((!loaded) || (!module))
+        return 1;
+    char *error;
+    *(void **) (&ptr) = dlsym(module, func.c_str());
+    if ((error = dlerror()) != NULL)
+    {
+        fputs(error, stderr);
+        return 1;
+    }
+    return 0;
+}
+int hmExtension::getFunc(short *ptr, string func)
+{
+    if ((!loaded) || (!module))
+        return 1;
+    char *error;
+    *(void **) (&ptr) = dlsym(module, func.c_str());
+    if ((error = dlerror()) != NULL)
+    {
+        fputs(error, stderr);
+        return 1;
+    }
+    return 0;
+}
+int hmExtension::getFunc(bool *ptr, string func)
+{
+    if ((!loaded) || (!module))
+        return 1;
+    char *error;
+    *(void **) (&ptr) = dlsym(module, func.c_str());
+    if ((error = dlerror()) != NULL)
+    {
+        fputs(error, stderr);
+        return 1;
+    }
+    return 0;
+}
+int hmExtension::getFunc(double *ptr, string func)
+{
+    if ((!loaded) || (!module))
+        return 1;
+    char *error;
+    *(void **) (&ptr) = dlsym(module, func.c_str());
+    if ((error = dlerror()) != NULL)
+    {
+        fputs(error, stderr);
+        return 1;
+    }
+    return 0;
+}
+int hmExtension::getFunc(float *ptr, string func)
+{
+    if ((!loaded) || (!module))
+        return 1;
+    char *error;
+    *(void **) (&ptr) = dlsym(module, func.c_str());
+    if ((error = dlerror()) != NULL)
+    {
+        fputs(error, stderr);
+        return 1;
+    }
+    return 0;
+}
+int hmExtension::getFunc(long *ptr, string func)
+{
+    if ((!loaded) || (!module))
+        return 1;
+    char *error;
+    *(void **) (&ptr) = dlsym(module, func.c_str());
+    if ((error = dlerror()) != NULL)
+    {
+        fputs(error, stderr);
+        return 1;
+    }
+    return 0;
+}
+int hmExtension::getFunc(string *ptr, string func)
+{
+    if ((!loaded) || (!module))
+        return 1;
+    char *error;
+    *(void **) (&ptr) = dlsym(module, func.c_str());
+    if ((error = dlerror()) != NULL)
+    {
+        fputs(error, stderr);
+        return 1;
+    }
+    return 0;
+}*/
+
+string hmExtension::getAPI()
+{
+	return API_VER;
+}
+
+bool hmExtension::isLoaded()
+{
+	return loaded;
+}
+
+void hmExtension::extensionInfo(string name, string author, string description, string version, string url)
+{
+	info.name = name;
+	info.author = author;
+	info.description = description;
+	info.version = version;
+	info.url = url;
+}
+
+hmInfo hmExtension::getInfo()
+{
+	return info;
+}
+
+string hmExtension::getPath()
+{
+	return modulePath;
+}
+
+string hmExtension::getExtension()
+{
+	return extensionName;
+}
+
 hmGlobal *recallGlobal(hmGlobal *global)
 {
 	static hmGlobal *globe = global;

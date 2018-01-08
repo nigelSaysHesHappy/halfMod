@@ -114,6 +114,8 @@
 
 class hmHandle;
 
+class hmExtension;
+
 struct hmInfo
 {
     std::string name;
@@ -209,6 +211,7 @@ struct hmGlobal
     int logMethod;
     int maxPlayers;
     std::vector<hmConsoleFilter>* conFilter;
+    std::vector<hmExtension> extensions;
 };
 
 class hmHandle
@@ -308,6 +311,38 @@ class hmHandle
         std::string modulePath;
         std::string pluginName;
 };
+
+class hmExtension
+{
+    public:
+        hmExtension();
+        hmExtension(std::string extensionPath, hmGlobal *global);
+        void unload();
+        bool load(std::string extensionPath, hmGlobal *global);
+        std::string getAPI();
+        hmInfo getInfo();
+        bool isLoaded();
+        void extensionInfo(std::string name, std::string author, std::string description, std::string version, std::string url);
+        std::string getPath();
+        std::string getExtension();
+        /*int getFunc(void *ptr, std::string func);
+        int getFunc(int *ptr, std::string func);
+        int getFunc(long *ptr, std::string func);
+        int getFunc(short *ptr, std::string func);
+        int getFunc(double *ptr, std::string func);
+        int getFunc(float *ptr, std::string func);
+        int getFunc(bool *ptr, std::string func);
+        int getFunc(std::string *ptr, std::string func);*/
+        void *getFunc(std::string func);
+    private:
+        bool loaded;
+        hmInfo info;
+        void *module;
+        std::string API_VER;
+        std::string modulePath;
+        std::string extensionName;
+};
+
 
 int mcVerInt(std::string version);
 void mkdirIf(const char *path);

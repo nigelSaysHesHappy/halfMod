@@ -12,14 +12,14 @@
 #include <sys/vtimes.h>
 using namespace std;
 
-#define VERSION "v0.0.8"
+#define VERSION "v0.0.9"
 
-static clock_t lastCPU, lastSysCPU, lastUserCPU;
-static int numProcessors;
+//static clock_t lastCPU, lastSysCPU, lastUserCPU;
+//static int numProcessors;
 
 void popGraph(int value);
 string amtTime2(/*love you*/long times);
-
+/*
 void init(){
     FILE* file;
     struct tms timeSample;
@@ -137,7 +137,7 @@ long getUptime()
     fclose(file);
     return stol(string(line));
 }
-
+*/
 struct graphTable
 {
     time_t cTime;
@@ -165,10 +165,11 @@ static int updateTime = 5, oldUpdateTime = 5;
 static int displayStats = STAT_TOTALCPU|STAT_TOTALMEM|STAT_FREEMEM;
 static int displayMode = DISPLAY_LIST;
 static string displaySlot = "sidebar";
+static int MCPID = -1;
 
 extern "C" {
 
-void onPluginStart(hmHandle &handle, hmGlobal *global)
+int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
     // THIS LINE IS REQUIRED IF YOU WANT TO PASS ANY INFO TO/FROM THE SERVER
     recallGlobal(global);
@@ -183,7 +184,38 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
     //handle.regAdminCmd("hm_graphtime","setUpdateTime",FLAG_CHAT);
     handle.regAdminCmd("hm_statbar","comStatBar",FLAG_CHAT);
     //handle.regConsoleCmd("hm_graphpoint","addPoint");
-    init();
+    for (auto it = global->extensions.begin(), ite = global->extensions.end();it != ite;++it)
+        if (it->getExtension() == "sysinfo")
+            return 0;
+    return 1;
+}
+
+int onHShellConnect(hmHandle &handle, smatch args)
+{
+    static int (*getMCPID)();
+    static bool loadfuncs = true;
+    if (loadfuncs)
+    {
+        hmGlobal *global = recallGlobal(NULL);
+        for (auto it = global->extensions.begin(), ite = global->extensions.end();it != ite;++it)
+        {
+            if (it->getExtension() == "sysinfo")
+            {
+                *(void **) (&getMCPID) = it->getFunc("getMCPID");
+                break;
+            }
+        }
+        loadfuncs = false;
+    }
+    MCPID = (*getMCPID)();
+    hmOutDebug("MC PID: " + to_string(MCPID));
+    return 0;
+}
+
+int onHShellDisconnect(hmHandle &handle)
+{
+    MCPID = -1;
+    return 0;
 }
 
 void onPluginStop(hmHandle &handle)
@@ -374,6 +406,31 @@ int popStatBar(hmHandle &handle, string args)
 {
     if (!enabled)
         return 1;
+    static double (*getCurrentValue)();
+    static double (*getCPUSince)();
+    static long (*getTotalMemoryFree)(long &totalMem);
+    static long (*getUptime)();
+    static long (*getCurrentMemUsage)();
+    static long (*getPIDMemUsage)(int pid);
+    static bool loadfuncs = true;
+    if (loadfuncs)
+    {
+        hmGlobal *global = recallGlobal(NULL);
+        for (auto it = global->extensions.begin(), ite = global->extensions.end();it != ite;++it)
+        {
+            if (it->getExtension() == "sysinfo")
+            {
+                *(void **) (&getCurrentValue) = it->getFunc("getCurrentValue");
+                *(void **) (&getCPUSince) = it->getFunc("getCPUSince");
+                *(void **) (&getTotalMemoryFree) = it->getFunc("getTotalMemoryFree");
+                *(void **) (&getUptime) = it->getFunc("getUptime");
+                *(void **) (&getCurrentMemUsage) = it->getFunc("getCurrentMemUsage");
+                *(void **) (&getPIDMemUsage) = it->getFunc("getPIDMemUsage");
+                break;
+            }
+        }
+        loadfuncs = false;
+    }
     if (displayMode == DISPLAY_GRAPH)
     {
         int stat = 0;
@@ -382,42 +439,42 @@ int popStatBar(hmHandle &handle, string args)
             case STAT_TOTALMEM:
             {
                 long free, total;
-                free = getTotalMemoryFree(total);
+                free = (*getTotalMemoryFree)(total);
                 stat = int(total);
                 break;
             }
             case STAT_USEDMEM:
             {
                 long free, total;
-                free = getTotalMemoryFree(total);
+                free = (*getTotalMemoryFree)(total);
                 stat = int(100.0-((double(free)/double(total))*100.0));
                 break;
             }
             case STAT_FREEMEM:
             {
                 long free, total;
-                free = getTotalMemoryFree(total);
+                free = (*getTotalMemoryFree)(total);
                 stat = int(double(free)/double(total)*100.0);
                 break;
             }
             case STAT_HMMEM:
             {
-                // nothing yet
+                stat = int((*getCurrentMemUsage)());
                 break;
             }
             case STAT_MCMEM:
             {
-                // nothing yet
+                stat = int((*getPIDMemUsage)(MCPID));
                 break;
             }
             case STAT_TOTALCPU:
             {
-                stat = int(getCPUSince());
+                stat = int((*getCPUSince)());
                 break;
             }
             case STAT_HMCPU:
             {
-                stat = int(getCurrentValue());
+                stat = int((*getCurrentValue)());
                 break;
             }
             case STAT_MCCPU:
@@ -427,7 +484,7 @@ int popStatBar(hmHandle &handle, string args)
             }
             case STAT_UPTIME:
             {
-                stat = int(getUptime());
+                stat = int((*getUptime)());
                 break;
             }
         }
@@ -439,30 +496,40 @@ int popStatBar(hmHandle &handle, string args)
         if ((displayStats & STAT_TOTALMEM) > 0)
         {
             long free, total;
-            free = getTotalMemoryFree(total);
+            free = (*getTotalMemoryFree)(total);
             //hmSendRaw("scoreboard players set Memory␣(Used)␣" + data2str("%lu/%lu␣%% hmStatBar %i",total-free,total,int(100.0-((double(free)/double(total))*100.0))));
-            hmSendRaw("scoreboard players set Total§0␣§rMemory hmStatBar " + data2str("%i",int(total)));
+            //hmSendRaw("scoreboard players set Total§0␣§rMemory hmStatBar " + data2str("%i",int(total)));
+            hmSendRaw("scoreboard players set Total␣Memory hmStatBar " + data2str("%i",int(total)));
         }
         if ((displayStats & STAT_USEDMEM) > 0)
         {
             long free, total;
-            free = getTotalMemoryFree(total);
+            free = (*getTotalMemoryFree)(total);
             //hmSendRaw("scoreboard players set Memory␣(Used)␣" + data2str("%lu/%lu␣%% hmStatBar %i",total-free,total,int(100.0-((double(free)/double(total))*100.0))));
-            hmSendRaw("scoreboard players set Used§0␣§rMemory§0␣§2" + data2str("%.2f§r%% hmStatBar %i",100.0-((double(free)/double(total))*100.0),int(total-free)));
+            //hmSendRaw("scoreboard players set Used§0␣§rMemory§0␣§2" + data2str("%.2f§r%% hmStatBar %i",100.0-((double(free)/double(total))*100.0),int(total-free)));
+            hmSendRaw("scoreboard players set Used␣Memory␣" + data2str("%.2f%% hmStatBar %i",100.0-((double(free)/double(total))*100.0),int(total-free)));
         }
         if ((displayStats & STAT_FREEMEM) > 0)
         {
             long free, total;
-            free = getTotalMemoryFree(total);
+            free = (*getTotalMemoryFree)(total);
             //hmSendRaw("scoreboard players set Memory␣(Used)␣" + data2str("%lu/%lu␣%% hmStatBar %i",total-free,total,int(100.0-((double(free)/double(total))*100.0))));
-            hmSendRaw("scoreboard players set Free§0␣§rMemory§0␣§2" + data2str("%.2f§r%% hmStatBar %i",double(free)/double(total)*100.0,int(free)));
+            //hmSendRaw("scoreboard players set Free§0␣§rMemory§0␣§2" + data2str("%.2f§r%% hmStatBar %i",double(free)/double(total)*100.0,int(free)));
+            hmSendRaw("scoreboard players set Free␣Memory␣" + data2str("%.2f%% hmStatBar %i",double(free)/double(total)*100.0,int(free)));
         }
+        if ((displayStats & STAT_HMMEM) > 0)
+            hmSendRaw("scoreboard players set halfMod␣Memory␣Usage hmStatBar " + to_string((*getCurrentMemUsage)()));
+        if ((displayStats & STAT_MCMEM) > 0)
+            hmSendRaw("scoreboard players set Minecraft␣Memory␣Usage hmStatBar " + to_string((*getPIDMemUsage)(MCPID)));
         if ((displayStats & STAT_TOTALCPU) > 0)
-            hmSendRaw("scoreboard players set Total§0␣§rCPU§0␣§r% hmStatBar " + data2str("%i",int(getCPUSince())));
+            //hmSendRaw("scoreboard players set Total§0␣§rCPU§0␣§r% hmStatBar " + data2str("%i",int((*getCPUSince)())));
+            hmSendRaw("scoreboard players set Total␣CPU␣% hmStatBar " + data2str("%i",int((*getCPUSince)())));
         if ((displayStats & STAT_HMCPU) > 0)
-            hmSendRaw("scoreboard players set halfMod§0␣§rCPU§0␣§r% hmStatBar " + data2str("%i",int(getCurrentValue())));
+            //hmSendRaw("scoreboard players set halfMod§0␣§rCPU§0␣§r% hmStatBar " + data2str("%i",int((*getCurrentValue)())));
+            hmSendRaw("scoreboard players set halfMod␣CPU␣% hmStatBar " + data2str("%i",int((*getCurrentValue)())));
         if ((displayStats & STAT_UPTIME) > 0)
-            hmSendRaw("scoreboard players set Uptime§0␣§r" + amtTime2(getUptime()) + " hmStatBar -1");
+            //hmSendRaw("scoreboard players set Uptime§0␣§r" + amtTime2((*getUptime)()) + " hmStatBar -1");
+            hmSendRaw("scoreboard players set Uptime␣" + amtTime2((*getUptime)()) + " hmStatBar -1");
     }
     if (oldUpdateTime != updateTime)
     {
