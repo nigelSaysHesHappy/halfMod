@@ -12,7 +12,7 @@ string amtTime(/*love you*/long times);
 
 extern "C" {
 
-void onPluginStart(hmHandle &handle, hmGlobal *global)
+int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
     // THIS LINE IS REQUIRED IF YOU WANT TO PASS ANY INFO TO/FROM THE SERVER
     recallGlobal(global);
@@ -27,6 +27,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
     handle.regAdminCmd("hm_whois","whoisPlayer",FLAG_ADMIN);
     handle.regConsoleCmd("hm_whereami","wherePlayer","Display your whereabouts to everyone on the server.");
     handle.regConsoleCmd("hm_timetillday","timeTillDay","Display the time until the sun rises.");
+    return 0;
 }
 
 int seenPlayer(hmHandle &handle, string caller, string args[], int argc)

@@ -46,7 +46,7 @@ const string memList[] = { "constant",
 
 extern "C" {
 
-void onPluginStart(hmHandle &handle, hmGlobal *global)
+int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
     recallGlobal(global);
     handle.pluginInfo("Compose",
@@ -58,6 +58,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
     handle.regAdminCmd("hm_comp_unset","compUnset",FLAG_CUSTOM1,"Unset a variable");
     handle.regAdminCmd("hm_comp_edit","compEdit",FLAG_CUSTOM1,"Edit a variable's members");
     handle.regAdminCmd("hm_compose","composeCmd",FLAG_CUSTOM1,"Compose variables into a command");
+    return 0;
 }
 
 int compSet(hmHandle &handle, string client, string args[], int argc)

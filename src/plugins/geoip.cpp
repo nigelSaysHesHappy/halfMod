@@ -9,7 +9,7 @@ using namespace std;
 
 extern "C" {
 
-void onPluginStart(hmHandle &handle, hmGlobal *global)
+int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
     // THIS LINE IS REQUIRED IF YOU WANT TO PASS ANY INFO TO/FROM THE SERVER
     recallGlobal(global);
@@ -20,6 +20,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
                           "Get GeoIP location of players when they connect.",
                           VERSION,
                           "http://now.we.know.where.you.justca.me/from/"    );
+    return 0;
 }
 
 // event triggered when a player connects

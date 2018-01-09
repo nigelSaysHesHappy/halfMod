@@ -25,7 +25,7 @@ voteInfo vote;
 
 extern "C" {
 
-void onPluginStart(hmHandle &handle, hmGlobal *global)
+int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
     recallGlobal(global);
     handle.pluginInfo("Votes",
@@ -36,6 +36,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
     handle.regConsoleCmd("hm_vote","voteCmd","Cast a vote");
     handle.regAdminCmd("hm_createvote","createVoteCmd",FLAG_VOTE,"Initiate a vote");
     handle.regAdminCmd("hm_voterun","runVoteCmd",FLAG_VOTE,"Initiate a vote to run a command");
+    return 0;
 }
 
 int onPlayerDisconnect(hmHandle &handle, smatch args)

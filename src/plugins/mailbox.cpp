@@ -22,7 +22,7 @@ string msgWith;
 
 extern "C" {
 
-void onPluginStart(hmHandle &handle, hmGlobal *global)
+int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
     // THIS LINE IS REQUIRED IF YOU WANT TO PASS ANY INFO TO/FROM THE SERVER
     recallGlobal(global);
@@ -43,6 +43,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
     handle.regConsoleCmd("hm_mb_return","mailReturn","Return mail to sender.");
     handle.regConsoleCmd("hm_mb_delete","mailDelete","Delete a mailbox item.");
     mkdirIf("./halfMod/plugins/mailbox/");
+    return 0;
 }
 
 /*int onWorldInit(hmHandle &handle, smatch args)

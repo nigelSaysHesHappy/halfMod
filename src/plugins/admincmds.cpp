@@ -13,7 +13,7 @@ using namespace std;
 
 extern "C" {
 
-void onPluginStart(hmHandle &handle, hmGlobal *global)
+int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
 	// THIS LINE IS REQUIRED IF YOU WANT TO PASS ANY INFO TO/FROM THE SERVER
 	recallGlobal(global);
@@ -44,6 +44,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
     handle.regAdminCmd("hm_rocket","rocketPlayer",FLAG_SLAY,"Launch a target in the air like a firework.");
     handle.regAdminCmd("hm_slay","slayPlayer",FLAG_SLAY,"Kill a target.");
     handle.regAdminCmd("hm_explode","explodePlayer",FLAG_SLAY,"Kill a target with an explosion.");
+    return 0;
 }
 
 int onWorldInit(hmHandle &handle, smatch args)

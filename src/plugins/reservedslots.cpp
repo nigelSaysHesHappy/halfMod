@@ -11,7 +11,7 @@ int reservedSlots = 1;
 
 extern "C" {
 
-void onPluginStart(hmHandle &handle, hmGlobal *global)
+int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
     // THIS LINE IS REQUIRED IF YOU WANT TO PASS ANY INFO TO/FROM THE SERVER
     recallGlobal(global);
@@ -23,6 +23,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
                         VERSION,
                         "http://reservations.justca.me/in/your/slot"    );
     handle.regAdminCmd("hm_reservedslots","slotCom",FLAG_CVAR,"Set the number of reserved slots.");
+    return 0;
 }
 
 int onPlayerJoin(hmHandle &handle, smatch args)
