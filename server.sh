@@ -50,9 +50,9 @@ echo "stdbuf -oL -eL java -Xms1024M -Xmx1024M -jar minecraft_server.${mcver}.jar
 echo "echo \"]:-:-:-:[###[THREAD COMPLETE]###]:-:-:-:[\"" >>launchmc
 echo "#!/bin/bash" >launchhs
 if $autorestart; then
-	echo "/bin/bash launchmc | { ./halfshell ${hsScreen} ${mcver} ${hsswitch}; ./server.sh $origswitch --restart; }" >>launchhs
+	echo "/bin/bash launchmc | { ./halfshell ${hsScreen} ${mcver} ${hsswitch[@]}; ./server.sh $origswitch --restart; }" >>launchhs
 else
-	echo "/bin/bash launchmc | ./halfshell ${hsScreen} ${mcver} ${hsswitch}" >>launchhs
+	echo "/bin/bash launchmc | ./halfshell ${hsScreen} ${mcver} ${hsswitch[@]}" >>launchhs
 fi
 
 if ! $restart; then
@@ -70,7 +70,7 @@ if screen -ls | grep "${hmScreen}">/dev/null; then
 	screen -A -m -d -S ${hsScreen} /bin/bash launchhs
 else
 	echo "Launching halfMod . . ."
-	screen -A -m -d -S ${hmScreen} ./halfmod_engine ${hsswitch} --mc-version=${mcver} localhost 9422
+	screen -A -m -d -S ${hmScreen} ./halfmod_engine "${hsswitch[@]}" --mc-version=${mcver} localhost 9422
 	while ! [ -f "listo.nada" ]; do
 		sleep 1
 	done
