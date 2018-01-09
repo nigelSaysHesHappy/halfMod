@@ -2,7 +2,7 @@
 
 hmScreen=halfMod
 hsScreen=halfShell
-mcver=1.12.2
+mcver=18w01a
 autorestart=false
 restart=false
 origswitch="$@"
