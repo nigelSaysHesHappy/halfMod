@@ -3,7 +3,7 @@
 #include <fstream>
 using namespace std;
 
-#define VERSION "v0.1.2"
+#define VERSION "v0.1.3"
 
 bool enabled = false;
 int interval = 1;
@@ -25,9 +25,15 @@ void handlePlayer(hmHandle &handle, vector<hmPlayer>::iterator it);
 
 extern "C" {
 
-void onPluginStart(hmHandle &handle, hmGlobal *global)
+int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
     recallGlobal(global);
+    int ver = mcVerInt(global->mcVer);
+    if ((ver < 113000) || ((ver >= 10000000) && (ver < 17005001)))
+    {
+        hmOutDebug("Error: Minimum Minecraft version for \"disco\" plugin is 1.13 official or snapshot 17w50a");
+        return 1;
+    }
     handle.pluginInfo("Disco",
                       "nigel",
                       "Boogie on down to disco town!",
@@ -43,6 +49,7 @@ void onPluginStart(hmHandle &handle, hmGlobal *global)
         enabled = true;
         handle.createTimer("discoTime",interval,"discoTime");
     }
+    return 0;
 }
 
 int updatePlayers(hmHandle &handle, string args)

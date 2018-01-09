@@ -9,7 +9,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.8"
+#define VERSION "v0.2.0"
 
 string amtTime(/*love you*/long times);
 
@@ -64,7 +64,11 @@ int sendMessage(hmHandle &handle, string client, string args[], int argc)
         hmReplyToClient(client,"Usage: " + args[0] + " <player> <message ...>");
         return 1;
     }
-    hmPlayer mailbox = hmGetPlayerData(args[1]);
+    hmPlayer mailbox;
+    if (hmIsPlayerOnline(args[1]))
+        mailbox = hmGetPlayerInfo(args[1]);
+    else
+        mailbox = hmGetPlayerData(args[1]);
     if (mailbox.uuid != "")
     {
         string rec = stripFormat(lower(mailbox.name));
@@ -96,7 +100,11 @@ int sendItem(hmHandle &handle, string client, string args[], int argc)
         return 1;
     }
     client = stripFormat(client);
-    hmPlayer mailbox = hmGetPlayerData(args[1]);
+    hmPlayer mailbox;
+    if (hmIsPlayerOnline(args[1]))
+        mailbox = hmGetPlayerInfo(args[1]);
+    else
+        mailbox = hmGetPlayerData(args[1]);
     if (mailbox.uuid != "")
     {
         if (argc > 2)
@@ -144,7 +152,10 @@ int sendItemCheck(hmHandle &handle, hmHook hook, smatch args)
         file<<"0:2:"<<hmGetPlayerInfo(client).name<<"="<<cTime<<"="<<tags<<"="<<msgWith;
         file<<endl;
         file.close();
-        hmReplyToClient(client,"You have sent an item to " + hmGetPlayerData(target).name + "!");
+        if (hmIsPlayerOnline(target))
+            hmReplyToClient(client,"You have sent an item to " + hmGetPlayerInfo(target).name + "!");
+        else
+            hmReplyToClient(client,"You have sent an item to " + hmGetPlayerData(target).name + "!");
         mbNotify(target);
     }
     else
@@ -169,7 +180,11 @@ int sendChest(hmHandle &handle, string client, string args[], int argc)
         return 1;
     }
     client = stripFormat(client);
-    hmPlayer mailbox = hmGetPlayerData(args[1]);
+    hmPlayer mailbox;
+    if (hmIsPlayerOnline(args[1]))
+        mailbox = hmGetPlayerInfo(args[1]);
+    else
+        mailbox = hmGetPlayerData(args[1]);
     if (mailbox.uuid != "")
     {
         if (argc > 2)
@@ -239,7 +254,10 @@ int sendChestCheck(hmHandle &handle, hmHook hook, smatch args)
         file<<"0:3:"<<hmGetPlayerInfo(client).name<<"="<<cTime<<"="<<tags<<"="<<msgWith;
         file<<endl;
         file.close();
-        hmReplyToClient(client,"You have sent a chest to " + hmGetPlayerData(target).name + "!");
+        if (hmIsPlayerOnline(target))
+            hmReplyToClient(client,"You have sent a chest to " + hmGetPlayerInfo(target).name + "!");
+        else
+            hmReplyToClient(client,"You have sent a chest to " + hmGetPlayerData(target).name + "!");
         mbNotify(target);
     }
     else
@@ -274,7 +292,11 @@ int sendXP(hmHandle &handle, string client, string args[], int argc)
     client = stripFormat(client);
     if ((stringisnum(args[2])) && ((xp2send = stoi(args[2])) > 0))
     {
-        hmPlayer mailbox = hmGetPlayerData(args[1]);
+        hmPlayer mailbox;
+        if (hmIsPlayerOnline(args[1]))
+            mailbox = hmGetPlayerInfo(args[1]);
+        else
+            mailbox = hmGetPlayerData(args[1]);
         if (mailbox.uuid != "")
         {
             if (argc > 3)
@@ -313,7 +335,10 @@ int sendXPCheck(hmHandle &handle, hmHook hook, smatch args)
             file<<"0:1:"<<hmGetPlayerInfo(client).name<<"="<<cTime<<"="<<amount<<"="<<msgWith;
             file<<endl;
             file.close();
-            hmReplyToClient(client,data2str("You have sent %i XP to ",amount) + hmGetPlayerData(target).name + "!");
+            if (hmIsPlayerOnline(target))
+                hmReplyToClient(client,data2str("You have sent %i XP to ",amount) + hmGetPlayerInfo(target).name + "!");
+            else
+                hmReplyToClient(client,data2str("You have sent %i XP to ",amount) + hmGetPlayerData(target).name + "!");
             mbNotify(target);
         }
         else
@@ -769,8 +794,10 @@ void mbNotify(string client)
                 if (it->at(0) == '0')
                     n++;
         }
-        if (n > 0)
-            hmSendRaw(data2str("tellraw %s [\"[HM] You have \",{\"text\":\"%i\",\"color\":\"gold\",\"bold\":true},{\"text\":\" unread message(s)! \",\"color\":\"none\",\"bold\":false},{\"text\":\"Click here\",\"color\":\"blue\",\"underlined\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox\"}},{\"text\":\" to open your mailbox!\",\"color\":\"none\",\"underlined\":false}]",client.c_str(),n));            
+        if (n > 1)
+            hmSendRaw(data2str("tellraw %s [\"[HM] You have \",{\"text\":\"%i\",\"color\":\"gold\",\"bold\":true},{\"text\":\" unread messages! \",\"color\":\"none\",\"bold\":false},{\"text\":\"Click here\",\"color\":\"blue\",\"underlined\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox\"}},{\"text\":\" to open your mailbox!\",\"color\":\"none\",\"underlined\":false}]",client.c_str(),n));            
+        else if (n > 0)
+            hmSendRaw(data2str("tellraw %s [\"[HM] You have \",{\"text\":\"%i\",\"color\":\"gold\",\"bold\":true},{\"text\":\" unread message! \",\"color\":\"none\",\"bold\":false},{\"text\":\"Click here\",\"color\":\"blue\",\"underlined\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox\"}},{\"text\":\" to open your mailbox!\",\"color\":\"none\",\"underlined\":false}]",client.c_str(),n));            
     }
 }
 
