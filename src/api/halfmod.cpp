@@ -82,7 +82,7 @@ bool hmHandle::load(string pluginPath, hmGlobal *global)
 {
 	if (!loaded)
 	{
-		module = dlopen(pluginPath.c_str(), RTLD_LAZY|RTLD_GLOBAL);
+		module = dlopen(pluginPath.c_str(), RTLD_LAZY|RTLD_LOCAL);
 		if (!module)
 			cerr<<"Error loading plugin \""<<pluginPath<<"\" "<<dlerror()<<endl;
 		else
@@ -834,7 +834,7 @@ int hmProcessTargets(string client, string target, vector<hmPlayer> &targList, i
 	}
 	else if (filter & FILTER_FLAG)
 	{
-		if (target.at(1) == '!')
+		if (target.at(0) == '!')
 	        c = 5;
 	    else
 		    c = 4;
