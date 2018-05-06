@@ -11,10 +11,18 @@ if [ ! -d ../../halfMod/plugins ]; then
     mkdir ../../halfMod/plugins
 fi
 
-if [[ "$1" == "--install" ]]; then
-	switchInstall=1
+while [[ $1 == --* ]]; do
+
+	if [[ "$1" == "--install" ]]; then
+		switchInstall=1
+	elif [[ "$1" == "--flag" ]]; then
+		flags+=( `eval echo '$2'` )
+		shift 1
+	fi
 	shift 1
-fi
+done
+
+echo "${flags[@]}"
 
 if [[ "$1" == "" ]]; then
     set -- *.cpp
@@ -29,7 +37,8 @@ while [ -f "$1" ]; do
     echo "Compiling '$1' . . ."
 	pluginsrc="$1"
 	pluginhmo="compiled/${pluginsrc%.*}.hmo"
-	g++ -std=c++11 -I ../include -o "${pluginhmo}" ../o/halfmod.o ../o/str_tok.o -shared "${pluginsrc}" -fPIC
+#	g++ -std=c++11 -stdlib=libc++ -I ../include -o "${pluginhmo}" ../o/halfmod.o ../o/str_tok.o -shared "${pluginsrc}" -fPIC
+        /usr/bin/clang++-3.8 -std=c++11 -stdlib=libc++ -I ../include -o "${pluginhmo}" ../o/halfmod.o ../o/str_tok.o "${flags[@]}" -shared "${pluginsrc}" -fPIC
 	err=$?
 	if [[ "$err" == "0" ]]; then
 		if [[ "$switchInstall" == "1" ]]; then

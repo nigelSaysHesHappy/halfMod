@@ -28,6 +28,14 @@ if [[ "$1" == "--plugins" ]]; then
     cd plugins
     ./compile.sh --install
     cd ..
+    if [ ! -d extensions ] || [ ! -f extensions/compile.sh ]; then
+        mkdir extensions
+        echo "Error: Missing './extensions/compile.sh' . . ."
+        exit 1
+    fi
+    echo "Compiling extensions . . ."
+    cd extensions
+    ./compile.sh --install
 fi
 echo "Done."
 

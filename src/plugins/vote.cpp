@@ -2,7 +2,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.2"
+#define VERSION "v0.1.3"
 
 class voteInfo
 {
@@ -23,6 +23,8 @@ class voteInfo
 
 voteInfo vote;
 
+int voteTimeout = 90, voteAddTime = 60;
+
 extern "C" {
 
 int onPluginStart(hmHandle &handle, hmGlobal *global)
@@ -33,9 +35,23 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
                       "Vote system",
                       VERSION,
                       "http://the.ballad.justca.me/in/your/box");
+    handle.hookConVarChange(handle.createConVar("vote_timeout","90","Seconds to wait for votes before ending.",0,true,0.0),"timeoutChange");
+    handle.hookConVarChange(handle.createConVar("vote_time_add","60","Seconds to add to the timeout each time a vote is cast.",0,true,0.0),"timeAddChange");
     handle.regConsoleCmd("hm_vote","voteCmd","Cast a vote");
     handle.regAdminCmd("hm_createvote","createVoteCmd",FLAG_VOTE,"Initiate a vote");
     handle.regAdminCmd("hm_voterun","runVoteCmd",FLAG_VOTE,"Initiate a vote to run a command");
+    return 0;
+}
+
+int timeoutChange(hmConVar &cvar, string oldVal, string newVal)
+{
+    voteTimeout = cvar.getAsInt();
+    return 0;
+}
+
+int timeAddChange(hmConVar &cvar, string oldVal, string newVal)
+{
+    voteAddTime = cvar.getAsInt();
     return 0;
 }
 
@@ -140,7 +156,7 @@ int voteCmd(hmHandle &handle, string client, string args[], int argc)
         handle.triggerTimer("voteTimer");
     else for (auto it = handle.timers.begin(), ite = handle.timers.end();it != ite;++it)
         if (it->name == "voteTimer")
-            it->interval += 60;
+            it->interval += voteAddTime;
     hmReplyToClient(client,"Your vote has been cast. Thanks for voting!");
     return 0;
 }
@@ -171,7 +187,7 @@ int createVoteCmd(hmHandle &handle, string client, string args[], int argc)
     }
     else
         vote.set(args[1],args+2,argc-2);
-    handle.createTimer("voteTimer",90,"tallyFunc");
+    handle.createTimer("voteTimer",voteTimeout,"tallyFunc");
     hmSendMessageAll("The polls have opened! Type '!vote #' to cast your vote");
     hmSendMessageAll(" " + vote.ballad);
     for (int i = 0;i < vote.quantity;i++)
@@ -205,7 +221,7 @@ int runVoteCmd(hmHandle &handle, string client, string args[], int argc)
     }
     else
         vote.set(args[2],args+3,argc-3,args[1]);
-    handle.createTimer("voteTimer",90,"tallyFunc");
+    handle.createTimer("voteTimer",voteTimeout,"tallyFunc");
     hmSendMessageAll("The polls have opened! Type '!vote #' to cast your vote");
     hmSendMessageAll(" " + vote.ballad);
     for (int i = 0;i < vote.quantity;i++)

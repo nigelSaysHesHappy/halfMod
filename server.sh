@@ -2,7 +2,7 @@
 
 hmScreen=halfMod
 hsScreen=halfShell
-mcver=18w01a
+mcver=18w16a
 autorestart=false
 restart=false
 origswitch="$@"
@@ -70,7 +70,8 @@ if screen -ls | grep "${hmScreen}">/dev/null; then
 	screen -A -m -d -S ${hsScreen} /bin/bash launchhs
 else
 	echo "Launching halfMod . . ."
-	screen -A -m -d -S ${hmScreen} ./halfmod_engine "${hsswitch[@]}" --mc-version=${mcver} localhost 9422
+	screen -A -m -d -S ${hmScreen} /bin/bash halfHold.sh "${hsswitch[@]}" --debug --mc-version=${mcver} localhost 9422
+    # Wait for halfMod to initialize
 	while ! [ -f "listo.nada" ]; do
 		sleep 1
 	done

@@ -9,7 +9,36 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.6"
+#define VERSION		"v0.0.9"
+
+int defBanTime = 0;
+
+static void (*addConfigButtonCallback)(string,string,int,std::string (*)(std::string,int,std::string,std::string));
+static void (*addConfigButtonCmd)(string,string,int,std::string);
+
+string kickButton(string name, int socket, string ip, string client)
+{
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !rcon hm_kick %all");
+    return "Kicking all players . . .";
+}
+
+string floodButton(string name, int socket, string ip, string client)
+{
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !rcon hm_flood");
+    return "Toggled eternal flood . . .";
+}
+
+string droughtButton(string name, int socket, string ip, string client)
+{
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !rcon hm_drought");
+    return "Toggled eternal drought . . .";
+}
+
+string slayButton(string name, int socket, string ip, string client)
+{
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !rcon hm_slay %all");
+    return "Slaying all players . . .";
+}
 
 extern "C" {
 
@@ -24,6 +53,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
 				"Generic commands for admins.",
 				VERSION,
 				"http://aboooos.justca.me/"	);
+	handle.hookConVarChange(handle.createConVar("default_ban_time","0","Default number of minutes to ban someone for if no value is provided to the hm_ban command.",0,true,0.0),"banTimeChange");
 	handle.regAdminCmd("hm_kick","kickPlayer",FLAG_KICK,"Kick a player from the server.");
 	handle.regAdminCmd("hm_ban","banPlayer",FLAG_BAN,"Ban a player from the server for X minutes.");
 	handle.regAdminCmd("hm_banip","banIP",FLAG_BAN,"Ban any player connecting via IP from the server for X minutes.");
@@ -34,8 +64,8 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
 	handle.regAdminCmd("hm_timeadd","addTime",FLAG_TIME,"Add to the world time.");
 	handle.regAdminCmd("hm_timeset","setTime",FLAG_TIME,"Set the time of day.");
 	handle.regAdminCmd("hm_weather","changeWeather",FLAG_WEATHER,"Clear or set the weather.");
-	handle.regAdminCmd("hm_gamerule","setGamerule",FLAG_CVAR,"Set or view gamerules.");
-	handle.regAdminCmd("hm_gamemode","setGamemode",FLAG_CVAR,"Set yours or anothers' gamemode.");
+	//handle.regAdminCmd("hm_gamerule","setGamerule",FLAG_CVAR,"Set or view gamerules.");
+	handle.regAdminCmd("hm_gamemode","setGamemode",FLAG_GAMEMODE,"Set yours or anothers' gamemode.");
     handle.regAdminCmd("hm_tphere","bringPlayer",FLAG_ADMIN,"Teleport a player to you.");
     handle.regAdminCmd("hm_noclip","toggleNoclip",FLAG_ADMIN,"Toggle noclip on players.");
     handle.regAdminCmd("hm_drought","toggleDrought",FLAG_WEATHER,"Enable/Disable eternal drought.");
@@ -44,6 +74,24 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     handle.regAdminCmd("hm_rocket","rocketPlayer",FLAG_SLAY,"Launch a target in the air like a firework.");
     handle.regAdminCmd("hm_slay","slayPlayer",FLAG_SLAY,"Kill a target.");
     handle.regAdminCmd("hm_explode","explodePlayer",FLAG_SLAY,"Kill a target with an explosion.");
+    for (auto it = global->extensions.begin(), ite = global->extensions.end();it != ite;++it)
+    {
+        if (it->getExtension() == "webgui")
+        {
+            *(void **) (&addConfigButtonCallback) = it->getFunc("addConfigButtonCallback");
+            *(void **) (&addConfigButtonCmd) = it->getFunc("addConfigButtonCmd");
+            (*addConfigButtonCallback)("kick","Kick All",FLAG_KICK,&kickButton);
+            (*addConfigButtonCallback)("flood","Toggle Flood",FLAG_WEATHER,&floodButton);
+            (*addConfigButtonCallback)("drought","Toggle Drought",FLAG_WEATHER,&droughtButton);
+            (*addConfigButtonCmd)("slay","Slay All",FLAG_SLAY,"hm_slay %all");
+        }
+    }
+    return 0;
+}
+
+int banTimeChange(hmConVar &cvar, string oldVal, string newVal)
+{
+    defBanTime = cvar.getAsInt();
     return 0;
 }
 
@@ -147,15 +195,15 @@ int kickPlayer(hmHandle &handle, string client, string args[], int argc)
 int banPlayer(hmHandle &handle, string client, string args[], int argc)
 {
 	if (argc < 2)
-		hmReplyToClient(client,"Usage: " + args[0] + " <target> [minutes, 0 = permenant] [reason]");
+		hmReplyToClient(client,"Usage: " + args[0] + " <target> [minutes, 0 = permanent] [reason]");
 	else
 	{
 		int banTime;
 		if (argc < 3)
-			banTime = 0;
+			banTime = defBanTime;
 		else if (!stringisnum(args[2],0))
 		{
-			hmReplyToClient(client,"Usage: " + args[0] + " <target> [minutes, 0 = permenant] [reason]");
+			hmReplyToClient(client,"Usage: " + args[0] + " <target> [minutes, 0 = permanent] [reason]");
 			hmReplyToClient(client,"Minutes must be a valid positive integer.");
 			return 1;
 		}
@@ -188,8 +236,8 @@ int banPlayer(hmHandle &handle, string client, string args[], int argc)
 				hmSendRaw("kick " + it->name + " " + reason + "\nban " + it->name + " " + reason);
 				if (banTime == 0)
 				{
-					hmSendCommandFeedback(client,"Permenantly banned player " + it->name + " (" + reason + ")");
-					hmLog(client + " permenantly banned player " + it->name + " (" + reason + ")",LOG_BAN,"bans.log");
+					hmSendCommandFeedback(client,"Permanently banned player " + it->name + " (" + reason + ")");
+					hmLog(client + " permanently banned player " + it->name + " (" + reason + ")",LOG_BAN,"bans.log");
 				}
 				else
 				{
@@ -212,7 +260,7 @@ int banPlayer(hmHandle &handle, string client, string args[], int argc)
 int banIP(hmHandle &handle, string client, string args[], int argc)
 {
 	if (argc < 2)
-		hmReplyToClient(client,"Usage: " + args[0] + " <target|IP> [minutes, 0 = permenant] [reason]");
+		hmReplyToClient(client,"Usage: " + args[0] + " <target|IP> [minutes, 0 = permanent] [reason]");
 	else
 	{
 		int banTime;
@@ -220,7 +268,7 @@ int banIP(hmHandle &handle, string client, string args[], int argc)
 			banTime = 0;
 		else if (!stringisnum(args[2],0))
 		{
-			hmReplyToClient(client,"Usage: " + args[0] + " <target|IP> [minutes, 0 = permenant] [reason]");
+			hmReplyToClient(client,"Usage: " + args[0] + " <target|IP> [minutes, 0 = permanent] [reason]");
 			hmReplyToClient(client,"Minutes must be a valid positive integer.");
 			return 1;
 		}
@@ -247,8 +295,8 @@ int banIP(hmHandle &handle, string client, string args[], int argc)
 			hmSendRaw("ban-ip " + args[1] + " " + reason);
 			if (banTime == 0)
 			{
-				hmSendCommandFeedback(client,"Permenantly banned IP " + args[1] + " (" + reason + ")");
-				hmLog(client + " permenantly banned ip " + args[1] + " (" + reason + ")",LOG_BAN,"bans.log");
+				hmSendCommandFeedback(client,"Permanently banned IP " + args[1] + " (" + reason + ")");
+				hmLog(client + " permanently banned ip " + args[1] + " (" + reason + ")",LOG_BAN,"bans.log");
 			}
 			else
 			{
@@ -272,8 +320,8 @@ int banIP(hmHandle &handle, string client, string args[], int argc)
 					hmSendRaw("kick " + it->name + " " + reason + "\nban-ip " + it->ip + " " + reason);
 					if (banTime == 0)
 					{
-						hmSendCommandFeedback(client,"Permenantly ip-banned player " + it->name + " (" + reason + ")");
-						hmLog(client + " permenantly ip-banned player " + it->name + ":" + it->ip + " (" + reason + ")",LOG_BAN,"bans.log");
+						hmSendCommandFeedback(client,"Permanently ip-banned player " + it->name + " (" + reason + ")");
+						hmLog(client + " permanently ip-banned player " + it->name + ":" + it->ip + " (" + reason + ")",LOG_BAN,"bans.log");
 					}
 					else
 					{
@@ -484,7 +532,7 @@ int changeWeather(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int setGamerule(hmHandle &handle, string client, string args[], int argc)
+/*int setGamerule(hmHandle &handle, string client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -512,7 +560,7 @@ int getGamerule(hmHandle &handle, hmHook hook, smatch args)
     hmReplyToClient(hook.name,"Gamerule '" + args[1].str() + "' = '" + args[2].str() + "'.");
     handle.unhookPattern(hook.name);
     return 1;
-}
+}*/
 
 int setGamemode(hmHandle &handle, string client, string args[], int argc)
 {
@@ -588,18 +636,30 @@ int toggleNoclip(hmHandle &handle, string client, string args[], int argc)
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
         name = stripFormat(it->name);
+        /*
         hmSendRaw("scoreboard players tag @a[name=" + name + ",gamemode=survival] add hmNoclip0",false);
         hmSendRaw("scoreboard players tag @a[name=" + name + ",gamemode=creative] add hmNoclip1",false);
         hmSendRaw("scoreboard players tag @a[name=" + name + ",gamemode=adventure] add hmNoclip2",false);
         hmSendRaw("scoreboard players tag @a[name=" + name + ",gamemode=!spectator] add hmNoclipping",false);
+        */
+        hmSendRaw("tag @a[name=" + name + ",gamemode=survival] add hmNoclip0",false);
+        hmSendRaw("tag @a[name=" + name + ",gamemode=creative] add hmNoclip1",false);
+        hmSendRaw("tag @a[name=" + name + ",gamemode=adventure] add hmNoclip2",false);
+        hmSendRaw("tag @a[name=" + name + ",gamemode=!spectator] add hmNoclipping",false);
         hmSendRaw("gamemode spectator @a[name=" + name + ",tag=hmNoclipping]",false);
-        hmSendRaw("gamemode survival @a[name=" + name + "tag=!hmNoclipping,tag=hmNoclip0]",false);
-        hmSendRaw("gamemode creative @a[name=" + name + "tag=!hmNoclipping,tag=hmNoclip1]",false);
-        hmSendRaw("gamemode adventure @a[name=" + name + "tag=!hmNoclipping,tag=hmNoclip2]",false);
+        hmSendRaw("gamemode survival @a[name=" + name + ",tag=!hmNoclipping,tag=hmNoclip0]",false);
+        hmSendRaw("gamemode creative @a[name=" + name + ",tag=!hmNoclipping,tag=hmNoclip1]",false);
+        hmSendRaw("gamemode adventure @a[name=" + name + ",tag=!hmNoclipping,tag=hmNoclip2]",false);
+        /*
         hmSendRaw("scoreboard players tag @a[name=" + name + ",tag=!hmNoclipping] remove hmNoclip0",false);
         hmSendRaw("scoreboard players tag @a[name=" + name + ",tag=!hmNoclipping] remove hmNoclip1",false);
         hmSendRaw("scoreboard players tag @a[name=" + name + ",tag=!hmNoclipping] remove hmNoclip2",false);
         hmSendRaw("scoreboard players tag @a[name=" + name + ",tag=hmNoclipping] remove hmNoclipping",false);
+        */
+        hmSendRaw("tag @a[name=" + name + ",tag=!hmNoclipping] remove hmNoclip0",false);
+        hmSendRaw("tag @a[name=" + name + ",tag=!hmNoclipping] remove hmNoclip1",false);
+        hmSendRaw("tag @a[name=" + name + ",tag=!hmNoclipping] remove hmNoclip2",false);
+        hmSendRaw("tag @a[name=" + name + ",tag=hmNoclipping] remove hmNoclipping",false);
         hmSendCommandFeedback(client,"Has toggled noclip on " + it->name);
     }
     return 0;

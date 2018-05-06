@@ -18,8 +18,8 @@ using namespace std;
 nigSock::nigSock()
 {
 	sock = -1;
-	mark = "";
-	ip = "";
+	mark.clear();
+	ip.clear();
 	port = 0;
 }
 
@@ -39,7 +39,7 @@ void nigSock::assign(int socket, struct sockaddr_in addr)
 	sock = socket;
 	ip = inet_ntoa(addr.sin_addr);
 	port = ntohs(addr.sin_port);
-	mark = "";
+	mark.clear();
 }
 
 /*
@@ -57,7 +57,7 @@ int nigSock::nRead(string &buffer,int size)
 
 int nigSock::nRead(string &buffer)
 {
-	buffer = "";
+	buffer.clear();
 	char c[1];
 	int s = 0;
 	while (read(sock,c,1) > 0)
@@ -75,15 +75,17 @@ int nigSock::nRead(string &buffer)
 
 int nigSock::nWrite(string buffer,int flags)
 {
-	return send(sock,buffer.c_str(),buffer.size(),flags);
+    if (sock != -1)
+    	return send(sock,buffer.c_str(),buffer.size(),flags);
+	return 0;
 }
 
 void nigSock::nClose()
 {
 	close(sock);
 	sock = -1;
-	mark = "";
-	ip = "";
+	mark.clear();
+	ip.clear();
 	port = -1;
 }
 

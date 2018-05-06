@@ -242,7 +242,7 @@ int comStatBar(hmHandle &handle, string client, string args[], int argc)
         return 1;
     }
     static int STATS[] = {1,2,4,8,16,32,64,128,256};
-    args[1] == lower(args[1]);
+    args[1] = lower(args[1]);
     if (args[1] == "on")
     {
         enabled = true;

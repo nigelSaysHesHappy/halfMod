@@ -4,8 +4,23 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION     "v0.0.3"
+#define VERSION     "v0.1.0"
 #define GEOIPDAT    "./geoip/GeoLiteCity.dat"
+
+bool geoEnabled = false;
+
+static void (*addConfigButtonCallback)(string,string,int,std::string (*)(std::string,int,std::string,std::string));
+
+string toggleButton(string name, int socket, string ip, string client)
+{
+    if (geoEnabled)
+    {
+        hmFindConVar("geoip_onconnect")->setBool(false);
+        return "GeoIP on connect is now disabled . . .";
+    }
+    hmFindConVar("geoip_onconnect")->setBool(true);
+    return "GeoIP on connect is now enabled . . .";
+}
 
 extern "C" {
 
@@ -20,6 +35,22 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
                           "Get GeoIP location of players when they connect.",
                           VERSION,
                           "http://now.we.know.where.you.justca.me/from/"    );
+    handle.hookConVarChange(handle.createConVar("geoip_onconnect","false","Display player's GeoIP location info when connecting.",0,true,0.0,true,1.0),"cvarChange");
+    for (auto it = global->extensions.begin(), ite = global->extensions.end();it != ite;++it)
+    {
+        if (it->getExtension() == "webgui")
+        {
+            *(void **) (&addConfigButtonCallback) = it->getFunc("addConfigButtonCallback");
+            //*(void **) (&addConfigButtonCmd) = it->getFunc("addConfigButtonCmd");
+            (*addConfigButtonCallback)("toggleGeoIP","Toggle GeoIP",FLAG_CVAR,&toggleButton);
+        }
+    }
+    return 0;
+}
+
+int cvarChange(hmConVar &cvar, string oldVal, string newVal)
+{
+    geoEnabled = cvar.getAsBool();
     return 0;
 }
 
@@ -27,13 +58,19 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
 int onPlayerConnect(hmHandle &handle, smatch args)
 {
     string ip = args[2].str();
+    string client = args[1].str();
+    string stripClient = stripFormat(client);
     if (ip == "127.0.0.1")
-        hmSendMessageAll("Player " + args[1].str() + " is connecting from localhost.");
+    {
+        if (geoEnabled)
+            hmSendMessageAll("Player " + client + " is connecting from localhost.");
+        hmWritePlayerDat(stripClient,"GeoIP=localhost","GeoIP",true);
+    }
     else
     {
         system(string("geoiplookup -f \"" + string(GEOIPDAT) + "\" \"" + ip + "\" > tempgeo").c_str());
         ifstream file ("tempgeo");
-        string str;
+        string str, tmp;
         if (file.is_open())
         {
             getline(file,str);
@@ -50,12 +87,17 @@ int onPlayerConnect(hmHandle &handle, smatch args)
                 out = ml[1];
             else    out = deltok(str,1,":");*/
             str = deltok(str,1,":");
-            regex ptrn ("(.*?[0-9].*|N/A)");
+            regex ptrn ("([0-9]|N/A)");
             out = gettok(str,1,",");
             for (int i = 2;i < 6;i++)
-                if (!regex_match(gettok(str,i,", "),ptrn))
-                    out = addtok(out,gettok(str,i,", "),", ");
-            hmSendMessageAll("Player " + args[1].str() + " is connecting from" + out + ".");
+            {
+                tmp = gettok(str,i,",");
+                if (!regex_search(tmp,ptrn))
+                    out = appendtok(out,tmp,",");
+            }
+            if (geoEnabled)
+                hmSendMessageAll("Player " + client + " is connecting from" + out + ".");
+            hmWritePlayerDat(stripClient,"GeoIP=" + out,"GeoIP",true);
         }
     }
     return 0;

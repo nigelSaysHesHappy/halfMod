@@ -148,9 +148,15 @@ int numtok(string tokens, string delim)
 {
     if (tokens.size() == 0) return 0;
 	int y = 1;
-    for (size_t x = 0; x < tokens.size(); x++)
+    for (size_t x = 0; x < tokens.size();)
     {
-        if ((tokens.compare(x,1,delim) == 0) && (tokens.compare(x+1,1,delim) != 0) && (x+1 < tokens.size())) y++;
+        if ((tokens.compare(x,delim.size(),delim) == 0) /*&& (tokens.compare(x+1,1,delim) != 0)*/ && (x+delim.size() < tokens.size()))
+        {
+            y++;
+            x+=delim.size();
+        }
+        else
+            x++;
     }
 	return y;
 }

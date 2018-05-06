@@ -3,12 +3,13 @@
 #include <fstream>
 using namespace std;
 
-#define VERSION "v0.1.3"
+#define VERSION "v0.2.2"
 
 bool enabled = false;
-int interval = 1;
+long interval = 1000;
+hmConVar *cDiscoTime;
 vector<string> readyPlayers;
-#define MAXMUSIC    9
+#define MAXMUSIC    11
 const string music[MAXMUSIC] = {
     "record.blocks",
     "record.cat",
@@ -18,10 +19,22 @@ const string music[MAXMUSIC] = {
     "record.mellohi",
     "record.stal",
     "record.strad",
+    "record.wait",
+    "record.ward",
     "music.credits"
 };
 
 void handlePlayer(hmHandle &handle, vector<hmPlayer>::iterator it);
+
+static void (*addConfigButtonCallback)(string,string,int,std::string (*)(std::string,int,std::string,std::string));
+
+string toggleButton(string name, int socket, string ip, string client)
+{
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !disco");
+    if (!enabled)
+        return "Disco mode is now enabled . . .";
+    return "Disco mode is now disabled . . .";
+}
 
 extern "C" {
 
@@ -40,14 +53,23 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
                       VERSION,
                       "http://this.disco.train.justca.me/to/town");
     handle.regAdminCmd("hm_disco","toggleDisco",FLAG_INVENTORY,"Toggle disco mode");
-    handle.regAdminCmd("hm_disco_time","setDiscoTime",FLAG_INVENTORY,"Change the tempo of the disco! Default is 1");
+    cDiscoTime = handle.createConVar("disco_time","1.0","Change the tempo of the disco! In fractional seconds.",0,true,0.0001);
+    handle.hookConVarChange(cDiscoTime,"setDiscoTime");
     handle.regAdminCmd("hm_votedisco","voteDisco",FLAG_VOTE,"All aboard the disco train!");
     ifstream file("./halfMod/config/disco.cfg");
     if (file.is_open())
     { // If this file exists; halfMod, or this plugin, ended while disco was enabled
         file.close();
         enabled = true;
-        handle.createTimer("discoTime",interval,"discoTime");
+        handle.createTimer("discoTime",interval,"discoTime","",MILLISECONDS);
+    }
+    for (auto it = global->extensions.begin(), ite = global->extensions.end();it != ite;++it)
+    {
+        if (it->getExtension() == "webgui")
+        {
+            *(void **) (&addConfigButtonCallback) = it->getFunc("addConfigButtonCallback");
+            (*addConfigButtonCallback)("toggleDisco","Toggle Disco",FLAG_INVENTORY,&toggleButton);
+        }
     }
     return 0;
 }
@@ -110,20 +132,9 @@ int onPlayerDisconnect(hmHandle &handle, smatch args)
     return 0;
 }
 
-int setDiscoTime(hmHandle &handle, string client, string args[], int argc)
+int setDiscoTime(hmConVar &cvar, string oldVal, string newVal)
 {
-    if (argc < 2)
-        hmReplyToClient(client,"The current tempo of the disco is: " + to_string(interval));
-    else
-    {
-        if (stringisnum(args[1],1))
-        {
-            interval = stoi(args[1]);
-            hmSendCommandFeedback(client,"Set the tempo of the disco to " + to_string(interval));
-        }
-        else
-            hmReplyToClient(client,"Usage: " + args[0] + " <N> - N must be at least 1");
-    }
+    interval = cvar.getAsFloat()*1000.0;
     return 0;
 }
 
@@ -166,7 +177,7 @@ int toggleDisco(hmHandle &handle, string client, string args[], int argc)
             file<<"enabled";
             file.close();
         }
-        handle.createTimer("discoTime",interval,"discoTime");
+        handle.createTimer("discoTime",interval,"discoTime","",MILLISECONDS);
         hmAddConsoleFilter("disco","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Replaced a slot on [^ ]+ with \\[Leather (Boots|Pants|Tunic|Cap)\\]$");
         hmSendRaw("execute as @a at @s run playsound minecraft:" + music[randint(0,MAXMUSIC)] + " record @s ~ ~ ~ 100");
         hmSendMessageAll("All aboard the disco train!");
@@ -212,7 +223,7 @@ int getArmor(hmHandle &handle, hmHook hook, smatch args)
 
 int discoTime(hmHandle &handle, string args)
 {
-    static int oldInt = interval;
+    static long oldInt = interval;
     if (!enabled)
         return 1;
     string randColor;
@@ -227,7 +238,7 @@ int discoTime(hmHandle &handle, string args)
     if (oldInt != interval)
     {
         oldInt = interval;
-        handle.createTimer("discoTime",interval,"discoTime");
+        handle.createTimer("discoTime",interval,"discoTime","",MILLISECONDS);
         return 1;
     }
     return 0;

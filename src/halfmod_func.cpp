@@ -4,6 +4,7 @@
 #include <ctime>
 #include <regex>
 #include <dirent.h>
+#include <netdb.h>
 #include <unistd.h>
 #include "str_tok.h"
 #include "halfmod.h"
@@ -11,7 +12,245 @@
 #include ".hmEngineBuild.h"
 using namespace std;
 
-int loadPlugin(hmGlobal &info, vector<hmHandle> &plugins, string path)
+int handleCommandLineSwitches(hmGlobal &serverInfo, int argc, char *argv[])
+{
+    int pos = 1;
+    if (argc > 1)
+    {
+        for (;pos < argc;pos++)
+        {
+            if (string(argv[pos]).compare(0,2,"--") == 0)
+            {
+                if (strcmp(argv[pos],"--") == 0)
+                {
+                    pos++;
+                    break;
+                }
+                else if (strcmp(argv[pos],"--version") == 0)
+                {
+                    cout<<VERSION<<" built with halfMod API "<<API_VERSION<<" written by nigel."<<endl;
+                    return 0;
+                }
+                else if (strcmp(argv[pos],"--verbose") == 0)
+                    serverInfo.verbose = true;
+                else if (strcmp(argv[pos],"--quiet") == 0)
+                    serverInfo.quiet = true;
+                else if (strcmp(argv[pos],"--debug") == 0)
+                    serverInfo.debug = true;
+                //else if (iswm(argv[pos],"--mc-version=*"))
+                else if (string(argv[pos]).compare(2,11,"mc-version=") == 0)
+                    serverInfo.mcVer = deltok(argv[pos],1,"=");
+                //else if (iswm(argv[pos],"--mc-world=*"))
+                else if (string(argv[pos]).compare(2,9,"mc-world=") == 0)
+                    serverInfo.world = deltok(argv[pos],1,"=");
+                else if (strcmp(argv[pos],"--log-off") == 0)
+                    serverInfo.logMethod = 0;
+                else if (strcmp(argv[pos],"--log-bans-off") == 0)
+                    serverInfo.logMethod &= ~LOG_BAN;
+                else if (strcmp(argv[pos],"--log-kicks-off") == 0)
+                    serverInfo.logMethod &= ~LOG_KICK;
+                else if (strcmp(argv[pos],"--log-op-off") == 0)
+                    serverInfo.logMethod &= ~LOG_OP;
+                else if (strcmp(argv[pos],"--log-whitelist-off") == 0)
+                    serverInfo.logMethod &= ~LOG_WHITELIST;
+                else if (strcmp(argv[pos],"--log-bans") == 0)
+                    serverInfo.logMethod |= LOG_BAN;
+                else if (strcmp(argv[pos],"--log-kicks") == 0)
+                    serverInfo.logMethod |= LOG_KICK;
+                else if (strcmp(argv[pos],"--log-op") == 0)
+                    serverInfo.logMethod |= LOG_OP;
+                else if (strcmp(argv[pos],"--log-whitelist") == 0)
+                    serverInfo.logMethod |= LOG_WHITELIST;
+                else
+                    cout<<"Ignoring unknown command switch: "<<argv[pos]<<endl;
+            }
+            else
+                break;
+        }
+    }
+    return pos;
+}
+
+void loadConfig(string *host)
+{
+    string line;
+    ifstream rFile(LASTRESORT);
+    if (rFile.is_open())
+    {
+        while (getline(rFile,line))
+        {
+            if (iswm(nospace(line),"#*")) continue;
+            line = lower(line);
+            if (gettok(line,1,"=") == "ip") host[0] = gettok(line,2,"=");
+            if (gettok(line,1,"=") == "port") host[1] = gettok(line,2,"=");
+        }
+        rFile.close();
+    }
+}
+
+void enterLoadedState()
+{
+    ofstream file ("listo.nada");
+    if (file.is_open())
+    {
+        file<<"todo";
+        file.close();
+    }
+}
+
+void sendHandshake(int sockfd)
+{
+    string shake = string(VERSION) + "\r";
+    send(sockfd,shake.c_str(),shake.size(),0);
+}
+
+hostent *resolveHost(const string &host)
+{
+    hostent *server = gethostbyname(host.c_str());
+    if (server == NULL)
+    {
+        cerr<<"Error, no such host "<<host<<" . . .";
+        if (host != "127.0.0.1")
+        {
+            cerr<<" Trying 127.0.0.1 . . .\n";
+            if ((server = gethostbyname("127.0.0.1")) == NULL)
+                return NULL;
+        }
+        else
+            return NULL;
+    }
+    return server;
+}
+
+void createDirs()
+{
+    mkdirIf("./halfMod/");
+    mkdirIf("./halfMod/plugins/");
+    mkdirIf("./halfMod/config/");
+    mkdirIf("./halfMod/userdata/");
+    mkdirIf("./halfMod/logs/");
+}
+
+void loadAllExtensions(hmGlobal &info)
+{
+    vector<string> paths;
+    findPlugins("./halfMod/extensions/",paths);
+    for (auto it = paths.begin(), ite = paths.end();it != ite;++it)
+        loadExtension(info,*it);
+}
+
+void loadAllPlugins(hmGlobal &info, vector<hmHandle> &plugins)
+{
+    vector<string> paths;
+    findPlugins("./halfMod/plugins/",paths);
+    for (auto it = paths.begin(), ite = paths.end();it != ite;++it)
+        loadPlugin(info,plugins,*it);
+}
+
+void loadAssets(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFilter> &filters)
+{
+    createDirs();
+    hashAdmins(info,ADMINCONF);
+    loadAllExtensions(info);
+    loadAllPlugins(info,plugins);
+    hashConsoleFilters(filters,plugins,CONFILTERPATH);
+    enterLoadedState();
+    cout<<"Assets loaded . . .\n";
+}
+
+bool receiveHandshake(int sockfd, hmGlobal &info, vector<hmHandle> &plugins)
+{
+    regex hsPtrn ("^(.*?)\t(.*?)\t(.*)$");
+    smatch hsMl;
+    string line;
+    if ((readSock(sockfd,line) > 1) && (regex_match(line,hsMl,hsPtrn)))
+    {
+        info.hsVer = hsMl[1].str();
+        info.mcScreen = hsMl[2].str();
+        if (info.mcVer == "")
+            info.mcVer = hsMl[3].str();
+        cout<<"Link established with "<<info.hsVer<<endl;
+        processEvent(plugins,HM_ONHSCONNECT,hsMl);
+        return true;
+    }
+    cerr<<"Invalid handshake received. Disconnecting . . ."<<endl;
+    return false;
+}
+
+void handleDisconnect(int &sockfd)
+{
+    close(sockfd);
+    sockfd = 0;
+}
+
+void handleDisconnect(int &sockfd, vector<hmHandle> &plugins)
+{
+    handleDisconnect(sockfd);
+    processEvent(plugins,HM_ONHSDISCONNECT);
+    cerr<<"Disconnected from host . . . Attempting to reconnect . . ."<<endl;
+}
+
+int initSocket()
+{
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    while (sockfd < 1)
+    {
+        cerr<<"Error opening socket . . . Retrying in 5 seconds . . ."<<endl;
+        sleep(5);
+        sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    }
+    return sockfd;
+}
+
+int handleConnection(int &sockfd, fd_set &readfds, hmGlobal &serverInfo, vector<hmHandle> &plugins, hostent *server, int port)
+{
+    if (sockfd < 1)
+    {
+        sockfd = initSocket();
+        tryConnect(serverInfo,sockfd,server,port);
+        sendHandshake(sockfd);
+        if (receiveHandshake(sockfd,serverInfo,plugins) == false)
+            handleDisconnect(sockfd);
+    }
+    if (sockfd > 0)
+    {
+        processTimers(plugins);
+        return resetSocketSelect(readfds,sockfd);
+    }
+    return 0;
+}
+
+void tryConnect(hmGlobal &serverInfo, int &sockfd, hostent *server, int port)
+{
+    static sockaddr_in serv_addr;
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, 
+        (char *)&serv_addr.sin_addr.s_addr,
+        server->h_length);
+    serv_addr.sin_port = htons(port);
+    serverInfo.hsSocket = -1;
+    serverInfo.mcScreen.clear();
+    while (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+    {
+        cerr<<"No connection to halfShell . . . Retrying in 1 second . . ."<<endl;
+        sleep(1);
+    }
+    serverInfo.hsSocket = sockfd;
+}
+
+int resetSocketSelect(fd_set &readfds, int sockfd)
+{
+    static timeval timeout;
+    FD_ZERO(&readfds);
+    FD_SET(sockfd,&readfds);
+    FD_SET(0,&readfds);
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 10;
+    return select(sockfd+1,&readfds,NULL,NULL,&timeout);
+}
+
+int loadPlugin(hmGlobal &info, vector<hmHandle> &plugins, const string &path)
 {
     for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
     {
@@ -43,7 +282,7 @@ int loadPlugin(hmGlobal &info, vector<hmHandle> &plugins, string path)
     return 0;
 }
 
-int loadExtension(hmGlobal &info, string path)
+int loadExtension(hmGlobal &info, const string &path)
 {
     for (auto it = info.extensions.begin(), ite = info.extensions.end();it != ite;++it)
     {
@@ -77,7 +316,7 @@ int loadExtension(hmGlobal &info, string path)
 
 int readSock(int sock, string &buffer)
 {
-    buffer = "";
+    buffer.clear();
     char c[1];
     int s = 0;
     while (read(sock,c,1) > 0)
@@ -109,7 +348,7 @@ int findPlugins(const char *dir, vector<string> &paths)
 
 // in charge of populating the hmGlobal struct and controlling console output
 // I said f it and made it handle everything.
-int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
+int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
 {
     static bool catchLine = false;
     if (catchLine == true)
@@ -124,7 +363,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
     smatch ml;
     vector<int> events;
     bool newEvent;
-    for (auto it = filters.begin(), ite = filters.end();it != ite;++it)
+    for (auto it = info.conFilter->begin(), ite = info.conFilter->end();it != ite;++it)
     {
         if (regex_search(thread,ml,it->filter))
         {
@@ -154,8 +393,13 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
             }
         }
     }
+    regex ptrn (".*");
     if ((blocking & HM_BLOCK_OUTPUT) == 0)
+    {
         cout<<thread<<endl;
+        if (regex_match(thread,ml,ptrn))
+            processEvent(plugins,HM_ONCONSOLERECV,ml);
+    }
     if ((blocking & HM_BLOCK_HOOK) == 0)
         if (processHooks(plugins,thread))
             return 1;
@@ -163,7 +407,10 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
         return 1;
     if (thread == "]:-:-:-:[###[THREAD COMPLETE]###]:-:-:-:[")
         return processEvent(plugins,HM_ONSHUTDOWNPOST);
-    regex ptrn ("\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] (.+)");
+    bool isRemote = false;
+    if (gettok(thread,1," ") == "[99:99:99]")
+        isRemote = true;
+    ptrn = "\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] (.+)";
     if (regex_match(thread,ml,ptrn))
     {
         thread = ml[1].str();
@@ -179,7 +426,8 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
             ptrn = "<(\\S+?)> (.*)";
             if (regex_match(thread,ml,ptrn))
             {
-                if ((ml[1].str() == "#SERVER") || (hmIsPlayerOnline(ml[1].str())))
+                //if ((ml[1].str() == "#SERVER") || (hmIsPlayerOnline(ml[1].str())))
+                if ((isRemote) || (hmIsPlayerOnline(ml[1].str())))
                 {
                     smatch ml1 = ml;
                     ptrn = "<(\\S+?)> !(\\S+) ?(.*)";
@@ -196,7 +444,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
             }
             else
             {
-                ptrn = "\\[(\\S+)\\] (.*)";
+                ptrn = "\\[(\\S+?)\\] (.*)";
                 if (regex_match(thread,ml,ptrn))
                 {
                     if (processEvent(plugins,HM_ONFAKETEXT,ml))
@@ -221,6 +469,19 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
                         }
                         else
                         {
+/*gamerule randomTickSpeed
+[18:12:46] [Server thread/INFO]: Gamerule randomTickSpeed is currently set to: 3
+gamerule randomTickSpeed 4
+[18:12:56] [Server thread/INFO]: Gamerule randomTickSpeed is now set to: 4*/
+                            ptrn = "\\[?[^ ]* ?Gamerule ([^ ]+) is (now|currently) set to: (.+?)\\]?$";
+                            if (regex_match(thread,ml,ptrn))
+                            {
+                                hmConVar *cvar = hmFindConVar(ml[1].str());
+                                if ((cvar != nullptr) && ((cvar->flags & FCVAR_GAMERULE) > 0))
+                                    cvar->setString(ml[3].str(),true);
+                                if (processEvent(plugins,HM_ONGAMERULE,ml))
+                                    return 1;
+                            }
                             /*ptrn = "TextComponent\\{.*text='([^\\s']+)'.*\\}\\[/([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}):([0-9]{1,})\\] logged in.*";
                             if (regex_match(thread,ml,ptrn))
                             {
@@ -230,6 +491,8 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
                             }
                             else // no longer needed as of 18w02a
                             {*/
+                            else
+                            {
                                 ptrn = "Starting minecraft server version (.+)";
                                 if (regex_match(thread,ml,ptrn))
                                 {
@@ -381,6 +644,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
                                         }
                                     }
                                 }
+                            }
                           //} fix only needed on version 18w01a
                         }
                     }
@@ -414,7 +678,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
                     }
                     else
                     {
-                        ptrn = "\\[Server thread/ERROR]: Couldn't execute command for (\\S+): (\\S+) ?(.*)";
+                        ptrn = "\\[Server thread/ERROR\\]: Couldn't execute command for (\\S+): (\\S+) ?(.*)";
                         if (regex_match(thread,ml,ptrn))
                         {
                             if (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str(),false))
@@ -422,6 +686,24 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string thread)
                         }
                     }
                 }
+            }
+        }
+    }
+    else
+    {
+        ptrn = "::\\[GLOBAL\\] (.+)";
+        if (regex_match(thread,ml,ptrn))
+        {
+            if (processEvent(plugins,HM_ONGLOBALMSG,ml))
+                return 1;
+        }
+        else
+        {
+            ptrn = "::\\[PRINT\\] (.+)";
+            if (regex_match(thread,ml,ptrn))
+            {
+                if (processEvent(plugins,HM_ONPRINTMSG,ml))
+                    return 1;
             }
         }
     }
@@ -454,36 +736,60 @@ int processEvent(vector<hmHandle> &plugins, int event, smatch thread)
     return 0;
 }
 
-int isInternalCmd(string cmd)
+#define MAXINTERNALS    11
+static internalCom cmdlist[MAXINTERNALS] =
 {
-    static string cmdlist[] =
+    {"hm",0,""},
+    {"hm_reloadadmins",FLAG_CONFIG,"Reload the admin config file."},
+    {"hm_info",0,"View and search commands you have access to."},
+    {"hm_version",0,"Display halfShell and halfMod version info."},
+    {"hm_credits",0,"Display halfMod credits."},
+    {"hm_exec",FLAG_CONFIG,"Execute a config file."},
+    {"hm_rcon",FLAG_RCON,"Run commands as the server console."},
+    {"hm_rehashfilter",FLAG_CONFIG,"Reload the console filter file."},
+    {"hm_cvar",FLAG_CVAR,"View and set the values of ConVars."},
+    {"hm_cvarinfo",FLAG_CVAR,"View and search all ConVars."},
+    {"hm_resetcvar",FLAG_CVAR,"Reset a ConVar to its default value."}
+};
+
+int isInternalCmd(const string &cmd, int flags)
+{
+    for (int i = 0;i < MAXINTERNALS;i++)
     {
-        "hm",
-        "hm_reloadadmins",
-        "hm_info",
-        "hm_version",
-        "hm_credits",
-        "hm_exec",
-        "hm_rcon",
-        "hm_rehashfilter"
-    };
-    for (int i = 0;i < 8;i++)
-    {
-        if (cmdlist[i] == cmd)
-            return i;
+        if (cmdlist[i].cmd == cmd)
+        {
+            if ((cmdlist[i].flags == 0) || ((flags & cmdlist[i].flags) == cmdlist[i].flags))
+                return i;
+            else
+                return -2;
+        }
     }
     return -1;
 }
 
-int processCmd(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string caller, string args, bool visible, bool console)
+int processCmd(hmGlobal &global, vector<hmHandle> &plugins, const string &cmd, const string &caller, const string &args, bool visible, bool console)
 {
     if (caller == "Server")
         return 0;
     hmCommand com;
-    int flags;
-    if (console)
+    int flags = 0;
+    if ((console) || (caller == "#SERVER"))
         flags = FLAG_ROOT;
-    else    flags = hmGetPlayerFlags(caller);
+    else if (hmIsPlayerOnline(caller))
+        flags = hmGetPlayerFlags(caller);
+    else// if (remote)
+    {
+        visible = false;
+        string client = lower(caller);
+        for (vector<hmAdmin>::iterator it = global.admins.begin(), ite = global.admins.end();it != ite;++it)
+        {
+            if (lower(it->client) == client)
+            {
+                flags = it->flags;
+                break;
+            }
+        }
+    }
     string *arga;
     int argc = numqtok(args," ")+1;
     arga = new string[argc];
@@ -491,7 +797,7 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string c
     for (int i = 1;i < argc;i++)
         arga[i] = getqtok(args,i," ");
     int ret = 0, internal;
-    if ((internal = isInternalCmd(cmd)) > -1)
+    if ((internal = isInternalCmd(cmd,flags)) > -1)
     {
         if (caller != "#SERVER")
             cout<<"[HM] "<<caller<<" is issuing the command "<<cmd<<endl;
@@ -534,10 +840,30 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string c
             }
             case 7:
             {
-                ret = internalRehash(plugins,caller);
+                ret = internalRehash(global,plugins,caller);
+                break;
+            }
+            case 8:
+            {
+                ret = internalCvar(global,caller,arga,argc);
+                break;
+            }
+            case 9:
+            {
+                ret = internalCvarInfo(global,caller,arga,argc);
+                break;
+            }
+            case 10:
+            {
+                ret = internalCvarReset(global,caller,arga,argc);
                 break;
             }
         }
+    }
+    else if (internal == -2)
+    {
+        hmReplyToClient(caller,"You do not have access to this command.");
+        ret = 9;
     }
     else
     {
@@ -546,7 +872,7 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string c
             com = it->findCmd(cmd);
             if (com.cmd != "")
             {
-                if ((com.flag == 0) || (flags & com.flag))
+                if ((com.flag == 0) || ((flags & com.flag) == com.flag))
                 {
                     if (caller != "#SERVER")
                         cout<<"[HM] "<<caller<<" is issuing the command "<<cmd<<endl;
@@ -580,15 +906,25 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string c
     return ret;
 }
 
-int processHooks(vector<hmHandle> &plugins, string thread)
+int processHooks(vector<hmHandle> &plugins, const string &thread)
 {
     smatch ml;
+    for (auto ita = recallGlobal(NULL)->extensions.begin(), itb = recallGlobal(NULL)->extensions.end();ita != itb;++ita)
+    {
+        for (auto it = ita->hooks.begin(), ite = ita->hooks.end();it != ite;++it)
+        {
+            if (it->name != "")
+                if (regex_search(thread,ml,it->rptrn))
+                    if ((*it->func)(*ita,*it,ml))
+                        return 1;
+        }
+    }
     for (auto ita = plugins.begin(), itb = plugins.end();ita != itb;++ita)
     {
         for (auto it = ita->hooks.begin(), ite = ita->hooks.end();it != ite;++it)
         {
             if (it->name != "")
-                if (regex_search(thread,ml,regex(it->ptrn)))
+                if (regex_search(thread,ml,it->rptrn))
                     if ((*it->func)(*ita,*it,ml))
                         return 1;
         }
@@ -596,7 +932,7 @@ int processHooks(vector<hmHandle> &plugins, string thread)
     return 0;
 }
 
-int hashAdmins(hmGlobal &info, string path)
+int hashAdmins(hmGlobal &info, const string &path)
 {
     // faster than looping through a mult table for each and every value.
     int FLAGS[26] = { 1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576,2097152,4194304,8388608,16777216,33554431 };
@@ -640,7 +976,7 @@ int hashAdmins(hmGlobal &info, string path)
     return 1;
 }
 
-int hashConsoleFilters(vector<hmHandle> &plugins, string path)
+int hashConsoleFilters(vector<hmConsoleFilter> &filters, vector<hmHandle> &plugins, const string &path)
 {
     ifstream file(path);
     if (file.is_open())
@@ -681,7 +1017,7 @@ int hashConsoleFilters(vector<hmHandle> &plugins, string path)
     return 1;
 }
 
-void loadPlayerData(hmGlobal &info, string name)
+void loadPlayerData(hmGlobal &info, const string &name)
 {
     for (auto it = info.players.begin();it != info.players.end();)
     {
@@ -693,7 +1029,7 @@ void loadPlayerData(hmGlobal &info, string name)
     info.players.push_back(hmGetPlayerData(name));
 }
 
-int internalHM(hmGlobal &global, vector<hmHandle> &plugins, string caller, string args[], int argc)
+int internalHM(hmGlobal &global, vector<hmHandle> &plugins, const string &caller, string args[], int argc)
 {
     if (argc < 2)
         internalVersion(global,caller);
@@ -740,6 +1076,7 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, string caller, strin
                         hmReplyToClient(caller,"    Version: " + temp.version);
                         hmReplyToClient(caller,"    Url    : " + temp.url);
                         hmReplyToClient(caller,data2str("    %i registered command(s).",it->totalCmds()));
+                        hmReplyToClient(caller,data2str("    %i registered convar(s).",it->totalCvars()));
                         hmReplyToClient(caller,data2str("    %i registered event(s).",it->totalEvents()));
                         hmReplyToClient(caller,data2str("    %lu registered hook(s).",it->hooks.size()));
                         hmReplyToClient(caller,data2str("    %lu running timer(s).",it->timers.size()));
@@ -894,6 +1231,9 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, string caller, strin
                         hmReplyToClient(caller,"    Desc   : " + temp.description);
                         hmReplyToClient(caller,"    Version: " + temp.version);
                         hmReplyToClient(caller,"    Url    : " + temp.url);
+                        hmReplyToClient(caller,data2str("    %i registered convar(s).",it->totalCvars()));
+                        hmReplyToClient(caller,data2str("    %lu registered hook(s).",it->hooks.size()));
+                        hmReplyToClient(caller,data2str("    %lu running timer(s).",it->timers.size()));
                     }
                     n++;
                 }
@@ -915,13 +1255,8 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, string caller, strin
     return 0;
 }
 
-int internalReload(hmGlobal &global, string caller)
+int internalReload(hmGlobal &global, const string &caller)
 {
-    if ((hmGetPlayerFlags(caller) & FLAG_CONFIG) == 0)
-    {
-        hmReplyToClient(caller,"You do not have access to this command.");
-        return 9;
-    }
     if (hashAdmins(global,ADMINCONF))
     {
         hmReplyToClient(caller,"Unable to load admin config file . . .");
@@ -931,13 +1266,8 @@ int internalReload(hmGlobal &global, string caller)
     return 0;
 }
 
-int internalExec(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string caller, string args)
+int internalExec(hmGlobal &global, vector<hmHandle> &plugins, const string &cmd, const string &caller, const string &args)
 {
-    if ((hmGetPlayerFlags(caller) & FLAG_CONFIG) == 0)
-    {
-        hmReplyToClient(caller,"You do not have access to this command.");
-        return 9;
-    }
     if (args == "")
     {
         hmReplyToClient(caller,"Usage: " + cmd + " <cfg file name>");
@@ -958,13 +1288,9 @@ int internalExec(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string
     return 0;
 }
 
-int internalInfo(vector<hmHandle> &plugins, string caller, string args[], int argc)
+int internalInfo(vector<hmHandle> &plugins, const string &caller, string args[], int argc)
 {
-    if ((hmGetPlayerFlags(caller) & FLAG_ADMIN) == 0)
-    {
-        hmReplyToClient(caller,"You do not have access to this command.");
-        return 9;
-    }
+    int flags = hmGetPlayerFlags(caller);
     int plug = -1;
     string criteria = "";
     int page = 1;
@@ -973,14 +1299,23 @@ int internalInfo(vector<hmHandle> &plugins, string caller, string args[], int ar
         if ((args[1] == "plugin") && (argc > 2))
         {
             bool found = false;
-            for (auto it = plugins.begin();it != plugins.end();++it)
+            if (args[2] == "internal")
             {
-                plug++;
-                if ((it->getPlugin() == args[2]) || (it->getPath() == args[2]) || ((stringisnum(args[2],0)) && (stoi(args[2]) == plug)))
+                hmReplyToClient(caller,"Displaying internal halfMod commands");
+                plug = -2;
+                found = true;
+            }
+            else
+            {
+                for (auto it = plugins.begin();it != plugins.end();++it)
                 {
-                    hmReplyToClient(caller,"Displaying commands from plugin: '" + it->getPlugin() + "'");
-                    found = true;
-                    break;
+                    plug++;
+                    if ((it->getPlugin() == args[2]) || (it->getPath() == args[2]) || ((stringisnum(args[2],0)) && (stoi(args[2]) == plug)))
+                    {
+                        hmReplyToClient(caller,"Displaying commands from plugin: '" + it->getPlugin() + "'");
+                        found = true;
+                        break;
+                    }
                 }
             }
             if (!found)
@@ -1007,20 +1342,42 @@ int internalInfo(vector<hmHandle> &plugins, string caller, string args[], int ar
     int n = -1;
     vector<string> list;
     string entry;
-    for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
-    {
-        n++;
-        if ((plug > -1) && (n != plug))
-            continue;
-        for (auto com = it->cmds.begin(), come = it->cmds.end();com != come;++com)
+    if (plug < 0)
+    { // list internals
+        for (int i = 1;i < MAXINTERNALS;i++)
         {
             if (criteria.size() > 0)
             {
-                if ((!isin(com->cmd,criteria)) && (!isin(com->desc,criteria)))
+                if ((!isin(cmdlist[i].cmd,criteria)) && (!isin(cmdlist[i].desc,criteria)))
                     continue;
             }
-            entry = com->cmd + " - " + com->desc;
-            list.push_back(entry);
+            if ((cmdlist[i].flags == 0) || ((flags & cmdlist[i].flags) > 0))
+            {
+                entry = cmdlist[i].cmd + " - " + cmdlist[i].desc;
+                list.push_back(entry);
+            }
+        }
+    }
+    if (plug > -2)
+    {
+        for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
+        {
+            n++;
+            if ((plug > -1) && (n != plug))
+                continue;
+            for (auto com = it->cmds.begin(), come = it->cmds.end();com != come;++com)
+            {
+                if (criteria.size() > 0)
+                {
+                    if ((!isin(com->cmd,criteria)) && (!isin(com->desc,criteria)))
+                        continue;
+                }
+                if ((com->flag == 0) || ((flags & com->flag) > 0))
+                {
+                    entry = com->cmd + " - " + com->desc;
+                    list.push_back(entry);
+                }
+            }
         }
     }
     if (list.size() < 1)
@@ -1061,14 +1418,106 @@ int internalInfo(vector<hmHandle> &plugins, string caller, string args[], int ar
     return 0;
 }
 
-int internalVersion(hmGlobal &global, string caller)
+int internalCvarInfo(hmGlobal &global, const string &caller, string args[], int argc)
+{
+    string criteria = "";
+    int page = 1;
+    if (argc > 1)
+    {
+        if ((argc > 2) && (stringisnum(args[2],1)))
+        {
+            criteria = args[1];
+            page = stoi(args[2]);
+        }
+        else if (stringisnum(args[1],1))
+            page = stoi(args[1]);
+        else
+            criteria = args[1];
+    }
+    vector<string> list;
+    string entry;
+    for (auto it = global.conVars.begin(), ite = global.conVars.end();it != ite;++it)
+    {
+        if (criteria.size() > 0)
+        {
+            if ((!isin(it->getName(),criteria)) && (!isin(it->getDesc(),criteria)))
+                continue;
+        }
+        entry = it->getName() + " (Default: " + it->getDefault() + ") - " + it->getDesc();
+        list.push_back(entry);
+    }
+    if (list.size() < 1)
+    {
+        if (criteria.size() > 0)
+            hmReplyToClient(caller,"No ConVars found matching the criteria: '" + criteria + "'");
+        else
+            hmReplyToClient(caller,"No registered ConVars found.");
+    }
+    else
+    {
+        int start, stop;
+        page++;
+        do
+        {
+            page--;
+            start = (page-1)*10;
+            stop = page*10-1;
+        }
+        while (start >= list.size());
+        int pages = list.size()/10;
+        if (list.size() % 10)
+            pages++;
+        if (criteria.size() > 0)
+            hmReplyToClient(caller,"Displaying page " + data2str("%i/%i",page,pages) + " matching: '" + criteria + "':");
+        else
+            hmReplyToClient(caller,"Displaying page " + data2str("%i/%i:",page,pages));
+        for (auto it = list.begin()+start, ite = list.end();it != ite;++it)
+        {
+            hmReplyToClient(caller,*it);
+            if (start == stop)
+                break;
+            start++;
+        }
+    }
+    return 0;
+}
+
+int internalCvarReset(hmGlobal &global, const string &caller, string args[], int argc)
+{
+    if (argc < 2)
+    {
+        hmReplyToClient(caller,"Usage: " + args[0] + " <cvar> - Reset a cvar to default.");
+        return 8;
+    }
+    bool found = false;
+    for (auto it = global.conVars.begin(), ite = global.conVars.end();it != ite;++it)
+    {
+        if (args[1] == it->getName())
+        {
+            found = true;
+            if ((it->flags & FCVAR_READONLY))
+                hmReplyToClient(caller,it->getName() + " is read-only.");
+            else
+            {
+                it->reset();
+                hmReplyToClient(caller,it->getName() + " has been reset to " + it->getAsString());
+            }
+            break;
+        }
+    }
+    if (!found)
+        hmReplyToClient(caller,"Unknown ConVar: " + args[1]);
+    return 0;
+}
+
+int internalVersion(hmGlobal &global, const string &caller)
 {
     hmReplyToClient(caller,string(VERSION) + " written by nigel.");
     hmReplyToClient(caller,global.hsVer + ", the vanilla Minecraft ModLoader written by nigel.");
     return 0;
 }
 
-int internalCredits(hmGlobal &global, string caller)
+int internalCredits(hmGlobal &global, const string &caller)
 {
     hmReplyToClient(caller,string(VERSION) + " written by nigel.");
     hmReplyToClient(caller,global.hsVer + ", the vanilla Minecraft ModLoader written by nigel.");
@@ -1080,13 +1529,8 @@ int internalCredits(hmGlobal &global, string caller)
     return 0;
 }
 
-int internalRcon(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string caller, string args)
+int internalRcon(hmGlobal &global, vector<hmHandle> &plugins, const string &cmd, const string &caller, const string &args)
 {
-    if ((hmGetPlayerFlags(caller) & FLAG_RCON) == 0)
-    {
-        hmReplyToClient(caller,"You do not have access to this command.");
-        return 9;
-    }
     if (args == "")
     {
         hmReplyToClient(caller,"Usage: " + cmd + " <command> [arguments ...]");
@@ -1096,14 +1540,9 @@ int internalRcon(hmGlobal &global, vector<hmHandle> &plugins, string cmd, string
     return 0;
 }
 
-int internalRehash(vector<hmHandle> &plugins, string caller)
+int internalRehash(hmGlobal &info, vector<hmHandle> &plugins, const string &caller)
 {
-    if ((hmGetPlayerFlags(caller) & FLAG_CONFIG) == 0)
-    {
-        hmReplyToClient(caller,"You do not have access to this command.");
-        return 9;
-    }
-    if (hashConsoleFilters(plugins,CONFILTERPATH))
+    if (hashConsoleFilters(*info.conFilter,plugins,CONFILTERPATH))
     {
         hmReplyToClient(caller,"Unable to load console filter config file . . .");
         return 1;
@@ -1112,11 +1551,96 @@ int internalRehash(vector<hmHandle> &plugins, string caller)
     return 0;
 }
 
+int internalCvar(hmGlobal &global, const string &caller, string args[], int argc)
+{
+    if (argc < 2)
+    {
+        hmReplyToClient(caller,"Usage: " + args[0] + " <convar> [value]");
+        return 1;
+    }
+    bool found = false;
+    for (auto it = global.conVars.begin(), ite = global.conVars.end();it != ite;++it)
+    {
+        if (args[1] == it->getName())
+        {
+            found = true;
+            if (argc < 3)
+                hmReplyToClient(caller,it->getName() + " = " + it->getAsString());
+            else
+            {
+                if ((it->flags & FCVAR_READONLY))
+                    hmReplyToClient(caller,it->getName() + " is read-only.");
+                else
+                {
+                    it->setString(args[2]);
+                    hmReplyToClient(caller,it->getName() + " set to " + it->getAsString());
+                }
+            }
+            break;
+        }
+    }
+    if (!found)
+        hmReplyToClient(caller,"Unknown ConVar: " + args[1]);
+    return 0;
+}
+
 void processTimers(vector<hmHandle> &plugins)
 {
-    time_t curTime = time(NULL);
+    chrono::high_resolution_clock::time_point curTime = chrono::high_resolution_clock::now();
+    chrono::nanoseconds interval;
     int n;
     size_t cap;
+    for (vector<hmExtension>::iterator ita = recallGlobal(NULL)->extensions.begin(), ite = recallGlobal(NULL)->extensions.end();ita != ite;++ita)
+    {
+        n = 0;
+        cap = ita->timers.capacity();
+        for (vector<hmExtTimer>::iterator it = ita->timers.begin();it != ita->timers.end();)
+        {
+            if (ita->invalidTimers)
+                ita->invalidTimers = false;
+            switch (it->type)
+            {
+                case MILLISECONDS:
+                {
+                    interval = (chrono::nanoseconds)(it->interval * 1000000);
+                    break;
+                }
+                case MICROSECONDS:
+                {
+                    interval = (chrono::nanoseconds)(it->interval * 1000);
+                    break;
+                }
+                case NANOSECONDS:
+                {
+                    interval = (chrono::nanoseconds)(it->interval);
+                    break;
+                }
+                default:
+                {
+                    interval = (chrono::nanoseconds)(it->interval * 1000000000);
+                }
+            }
+            if (it->last+interval <= curTime)
+            {
+                if ((*it->func)(*ita,it->args))
+                {
+                    if ((ita->invalidTimers) && (cap != ita->timers.capacity()))
+                        it = ita->timers.erase(ita->timers.begin()+n);
+                    else
+                        it = ita->timers.erase(it);
+                }
+                else
+                {
+                    if ((ita->invalidTimers) && (cap != ita->timers.capacity()))
+                        it = ita->timers.begin()+n;
+                    it->last = curTime;
+                    it++;
+                }
+            }
+            else    it++;
+            n++;
+        }
+    }
     for (vector<hmHandle>::iterator ita = plugins.begin(), ite = plugins.end();ita != ite;++ita)
     {
         n = 0;
@@ -1125,7 +1649,29 @@ void processTimers(vector<hmHandle> &plugins)
         {
             if (ita->invalidTimers)
                 ita->invalidTimers = false;
-            if (it->last+it->interval <= curTime)
+            switch (it->type)
+            {
+                case MILLISECONDS:
+                {
+                    interval = (chrono::nanoseconds)(it->interval * 1000000);
+                    break;
+                }
+                case MICROSECONDS:
+                {
+                    interval = (chrono::nanoseconds)(it->interval * 1000);
+                    break;
+                }
+                case NANOSECONDS:
+                {
+                    interval = (chrono::nanoseconds)(it->interval);
+                    break;
+                }
+                default:
+                {
+                    interval = (chrono::nanoseconds)(it->interval * 1000000000);
+                }
+            }
+            if (it->last+interval <= curTime)
             {
                 if ((*it->func)(*ita,it->args))
                 {

@@ -4,18 +4,23 @@ if [ ! -d o ]; then
     mkdir o
 fi
 
-source ".hmEngineBuildNo.sh"
+hmEngineBuild=0
+
+if [ -f ".hmEngineBuildNo.sh" ]; then
+    source ".hmEngineBuildNo.sh"
+fi
 
 let "hmEngineBuild++"
 echo "hmEngineBuild=${hmEngineBuild}">.hmEngineBuildNo.sh
-echo "#define VERSION \"halfMod v0.1.2-build${hmEngineBuild}\"">include/.hmEngineBuild.h
+echo "#define VERSION \"halfMod v0.1.3-build${hmEngineBuild}\"">include/.hmEngineBuild.h
 
 err=0
 
 while [[ $1 == --* ]]; do
     case "$1" in
         --build)
-            g++ -std=c++11 -I "include" -o o/${2%.*}.o -c ${2} -fPIC
+#            g++ -std=c++11 -stdlib=libc++ -I "include" -o o/${2%.*}.o -c ${2} -fPIC
+             /usr/bin/clang++-3.8 -std=c++11 -stdlib=libc++ -I "include" -o o/${2%.*}.o -c ${2} -fPIC
             shift 1
         ;;
     esac
@@ -26,12 +31,13 @@ while [[ $1 == --* ]]; do
     shift 1
 done
 
-g++ -std=c++11 -I "include" -o ../halfmod_engine o/str_tok.o o/halfmod.o o/halfmod_func.o halfmod_engine.cpp -ldl
+#g++ -std=c++11 -stdlib=libc++ -I "include" -o ../halfmod_engine o/str_tok.o o/halfmod.o o/halfmod_func.o halfmod_engine.cpp -ldl
+/usr/bin/clang++-3.8 -std=c++11 -stdlib=libc++ -I "include" -o ../halfmod_engine o/str_tok.o o/halfmod.o o/halfmod_func.o halfmod_engine.cpp -ldl
 
 # only increase build number if it compiled.
 if [[ $? != 0 ]]; then
 	let "hmEngineBuild--"
 	echo "hmEngineBuild=${hmEngineBuild}">.hmEngineBuildNo.sh
-	echo "#define VERSION \"halfMod v0.1.2-build${hmEngineBuild}\"">include/.hmEngineBuild.h
+	echo "#define VERSION \"halfMod v0.1.3-build${hmEngineBuild}\"">include/.hmEngineBuild.h
 fi
 

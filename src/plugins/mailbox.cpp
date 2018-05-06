@@ -9,7 +9,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.2.0"
+#define VERSION "v0.2.2"
 
 string amtTime(/*love you*/long times);
 
@@ -19,6 +19,84 @@ void mbNotify(string client);
 
 int xp2send;
 string msgWith;
+
+bool mbEnabled = true;
+bool msgEnabled = true;
+bool itemEnabled = true;
+bool chestEnabled = true;
+bool xpEnabled = true;
+
+bool allowSendSelf = true;
+
+void writeConf();
+
+static void (*addConfigButtonCallback)(string,string,int,std::string (*)(std::string,int,std::string,std::string));
+
+string toggleMailbox(string name, int socket, string ip, string client)
+{
+    if (mbEnabled)
+    {
+        hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_enabled false");
+        return "The Mailbox plugin is now disabled . . .";
+    }
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_enabled true");
+    return "The Mailbox plugin is now enabled . . .";
+}
+
+string toggleMailboxMsg(string name, int socket, string ip, string client)
+{
+    if (msgEnabled)
+    {
+        hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_message false");
+        return "Sending text messages through the Mailbox plugin is now disabled . . .";
+    }
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_message true");
+    return "Sending text messages through the Mailbox plugin is now enabled . . .";
+}
+
+string toggleMailboxChest(string name, int socket, string ip, string client)
+{
+    if (chestEnabled)
+    {
+        hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_sendchest false");
+        return "Sending chests through the Mailbox plugin is now disabled . . .";
+    }
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_sendchest true");
+    return "Sending chests through the Mailbox plugin is now enabled . . .";
+}
+
+string toggleMailboxItem(string name, int socket, string ip, string client)
+{
+    if (itemEnabled)
+    {
+        hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_senditem false");
+        return "Sending items through the Mailbox plugin is now disabled . . .";
+    }
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_senditem true");
+    return "Sending items through the Mailbox plugin is now enabled . . .";
+}
+
+string toggleMailboxXP(string name, int socket, string ip, string client)
+{
+    if (xpEnabled)
+    {
+        hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_sendxp false");
+        return "Sending experience through the Mailbox plugin is now disabled . . .";
+    }
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_sendxp true");
+    return "Sending experience through the Mailbox plugin is now enabled . . .";
+}
+
+string toggleMailboxSelf(string name, int socket, string ip, string client)
+{
+    if (allowSendSelf)
+    {
+        hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_self false");
+        return "Sending any type of messages to yourself through the Mailbox plugin is now disallowed . . .";
+    }
+    hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !mb_allow_self true");
+    return "Sending any type of messages to yourself through the Mailbox plugin is now allowed . . .";
+}
 
 extern "C" {
 
@@ -33,6 +111,12 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
                         "Send and receive mail.",
                         VERSION,
                         "http://your.package.justca.me/" );
+    handle.regAdminCmd("hm_mb_enabled","admEnabled",FLAG_CVAR,"Enable or disable the mailbox plugin.");
+    handle.regAdminCmd("hm_mb_allow_message","admMessage",FLAG_CVAR,"Enable or disable the use of the hm_message command.");
+    handle.regAdminCmd("hm_mb_allow_sendchest","admSendChest",FLAG_CVAR,"Enable or disable the use of the hm_sendchest command.");
+    handle.regAdminCmd("hm_mb_allow_senditem","admSendItem",FLAG_CVAR,"Enable or disable the use of the hm_senditem command.");
+    handle.regAdminCmd("hm_mb_allow_sendxp","admSendXP",FLAG_CVAR,"Enable or disable the use of the hm_sendxp command.");
+    handle.regAdminCmd("hm_mb_allow_self","admSendSelf",FLAG_CVAR,"Enable or disable the ability to send any type of messages to yourself.");
     handle.regConsoleCmd("hm_message","sendMessage","Leave a message for a player.");
     handle.regConsoleCmd("hm_sendchest","sendChest","Stand on top of a chest to seal and mail its contents to a player.");
     handle.regConsoleCmd("hm_senditem","sendItem","Send an item to a player.");
@@ -43,14 +127,303 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     handle.regConsoleCmd("hm_mb_return","mailReturn","Return mail to sender.");
     handle.regConsoleCmd("hm_mb_delete","mailDelete","Delete a mailbox item.");
     mkdirIf("./halfMod/plugins/mailbox/");
+    hmServerCommand("hm_exec mailbox");
+    for (auto it = global->extensions.begin(), ite = global->extensions.end();it != ite;++it)
+    {
+        if (it->getExtension() == "webgui")
+        {
+            *(void **) (&addConfigButtonCallback) = it->getFunc("addConfigButtonCallback");
+            //*(void **) (&addConfigButtonCmd) = it->getFunc("addConfigButtonCmd");
+            (*addConfigButtonCallback)("mbToggle","Toggle Mailbox Plugin",FLAG_CVAR,&toggleMailbox);
+            (*addConfigButtonCallback)("mbToggleMsg","Toggle Mailbox Messages",FLAG_CVAR,&toggleMailboxMsg);
+            (*addConfigButtonCallback)("mbToggleChest","Toggle Mailbox Chests",FLAG_CVAR,&toggleMailboxChest);
+            (*addConfigButtonCallback)("mbToggleItem","Toggle Mailbox Items",FLAG_CVAR,&toggleMailboxItem);
+            (*addConfigButtonCallback)("mbToggleXP","Toggle Mailbox XP",FLAG_CVAR,&toggleMailboxXP);
+            (*addConfigButtonCallback)("mbToggleSelf","Toggle Mailbox Self-Sending",FLAG_CVAR,&toggleMailboxSelf);
+        }
+    }
     return 0;
 }
 
-/*int onWorldInit(hmHandle &handle, smatch args)
+int admEnabled(hmHandle &handle, string client, string args[], int argc)
 {
-    hmSendRaw("scoreboard objectives add hmMBXP dummy\nscoreboard players set #hm hmMBXP 0");
+    if (argc < 2)
+    {
+        if (mbEnabled) hmReplyToClient(client,"The mailbox plugin is currently enabled.");
+        else hmReplyToClient(client,"The mailbox plugin is currently disabled.");
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    args[1] = lower(args[1]);
+    bool temp = mbEnabled;
+    if (args[1] == "true")
+        mbEnabled = true;
+    else if (args[1] == "false")
+        mbEnabled = false;
+    else
+    {
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    if (mbEnabled)
+    {
+        if (mbEnabled != temp)
+        {
+            if (msgEnabled)
+                handle.regConsoleCmd("hm_message","sendMessage","Leave a message for a player.");
+            if (chestEnabled)
+                handle.regConsoleCmd("hm_sendchest","sendChest","Stand on top of a chest to seal and mail its contents to a player.");
+            if (itemEnabled)
+                handle.regConsoleCmd("hm_senditem","sendItem","Send an item to a player.");
+            if (xpEnabled)
+                handle.regConsoleCmd("hm_sendxp","sendXP","Send XP to a player.");
+            handle.regConsoleCmd("hm_mailbox","checkMail","Check your mailbox.");
+            handle.regConsoleCmd("hm_mb_open","mailOpen","Open an item from your mailbox.");
+            handle.regConsoleCmd("hm_mb_accept","mailAccept","Accept an attatchment from a mailbox item.");
+            handle.regConsoleCmd("hm_mb_return","mailReturn","Return mail to sender.");
+            handle.regConsoleCmd("hm_mb_delete","mailDelete","Delete a mailbox item.");
+            hmReplyToClient(client,"The mailbox plugin is now enabled.");
+        }
+        else hmReplyToClient(client,"The mailbox plugin is already enabled!");
+    }
+    else
+    {
+        if (mbEnabled != temp)
+        {
+            handle.unregCmd("hm_message");
+            handle.unregCmd("hm_sendchest");
+            handle.unregCmd("hm_senditem");
+            handle.unregCmd("hm_sendxp");
+            handle.unregCmd("hm_mailbox");
+            handle.unregCmd("hm_mb_open");
+            handle.unregCmd("hm_mb_accept");
+            handle.unregCmd("hm_mb_return");
+            handle.unregCmd("hm_mb_delete");
+            hmReplyToClient(client,"The mailbox plugin is now disabled.");
+        }
+        else hmReplyToClient(client,"The mailbox plugin is already disabled!");
+    }
+    if (mbEnabled != temp)
+        writeConf();
     return 0;
-}*/
+}
+
+int admMessage(hmHandle &handle, string client, string args[], int argc)
+{
+    if (argc < 2)
+    {
+        if (msgEnabled) hmReplyToClient(client,"The hm_message command is currently enabled.");
+        else hmReplyToClient(client,"The hm_message command is currently disabled.");
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    args[1] = lower(args[1]);
+    bool temp = msgEnabled;
+    if (args[1] == "true")
+        msgEnabled = true;
+    else if (args[1] == "false")
+        msgEnabled = false;
+    else
+    {
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    if (msgEnabled)
+    {
+        if (msgEnabled != temp)
+        {
+            handle.regConsoleCmd("hm_message","sendMessage","Leave a message for a player.");
+            hmReplyToClient(client,"The hm_message command is now enabled.");
+        }
+        else hmReplyToClient(client,"The hm_message command is already enabled!");
+        if (!mbEnabled)
+            hmReplyToClient(client,"However, the mailbox plugin is not enabled so sent mail will not be received until enabled.");
+    }
+    else
+    {
+        if (msgEnabled != temp)
+        {
+            handle.unregCmd("hm_message");
+            hmReplyToClient(client,"The hm_message command is now disabled.");
+        }
+        else hmReplyToClient(client,"The hm_message command is already disabled!");
+    }
+    if (msgEnabled != temp)
+        writeConf();
+    return 0;
+}
+
+int admSendChest(hmHandle &handle, string client, string args[], int argc)
+{
+    if (argc < 2)
+    {
+        if (chestEnabled) hmReplyToClient(client,"The hm_sendchest command is currently enabled.");
+        else hmReplyToClient(client,"The hm_sendchest command is currently disabled.");
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    args[1] = lower(args[1]);
+    bool temp = chestEnabled;
+    if (args[1] == "true")
+        chestEnabled = true;
+    else if (args[1] == "false")
+        chestEnabled = false;
+    else
+    {
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    if (chestEnabled)
+    {
+        if (chestEnabled != temp)
+        {
+            handle.regConsoleCmd("hm_sendchest","sendChest","Stand on top of a chest to seal and mail its contents to a player.");
+            hmReplyToClient(client,"The hm_sendchest command is now enabled.");
+        }
+        else hmReplyToClient(client,"The hm_sendchest command is already enabled!");
+        if (!mbEnabled)
+            hmReplyToClient(client,"However, the mailbox plugin is not enabled so sent mail will not be received until enabled.");
+    }
+    else
+    {
+        if (chestEnabled != temp)
+        {
+            handle.unregCmd("hm_sendchest");
+            hmReplyToClient(client,"The hm_sendchest command is now disabled.");
+        }
+        else hmReplyToClient(client,"The hm_sendchest command is already disabled!");
+    }
+    if (chestEnabled != temp)
+        writeConf();
+    return 0;
+}
+
+int admSendItem(hmHandle &handle, string client, string args[], int argc)
+{
+    if (argc < 2)
+    {
+        if (itemEnabled) hmReplyToClient(client,"The hm_senditem command is currently enabled.");
+        else hmReplyToClient(client,"The hm_senditem command is currently disabled.");
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    args[1] = lower(args[1]);
+    bool temp = itemEnabled;
+    if (args[1] == "true")
+        itemEnabled = true;
+    else if (args[1] == "false")
+        itemEnabled = false;
+    else
+    {
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    if (itemEnabled)
+    {
+        if (itemEnabled != temp)
+        {
+            handle.regConsoleCmd("hm_senditem","sendItem","Send an item to a player.");
+            hmReplyToClient(client,"The hm_senditem command is now enabled.");
+        }
+        else hmReplyToClient(client,"The hm_senditem command is already enabled!");
+        if (!mbEnabled)
+            hmReplyToClient(client,"However, the mailbox plugin is not enabled so sent mail will not be received until enabled.");
+    }
+    else
+    {
+        if (itemEnabled != temp)
+        {
+            handle.unregCmd("hm_senditem");
+            hmReplyToClient(client,"The hm_senditem command is now disabled.");
+        }
+        else hmReplyToClient(client,"The hm_senditem command is already disabled!");
+    }
+    if (itemEnabled != temp)
+        writeConf();
+    return 0;
+}
+
+int admSendXP(hmHandle &handle, string client, string args[], int argc)
+{
+    if (argc < 2)
+    {
+        if (xpEnabled) hmReplyToClient(client,"The hm_sendxp command is currently enabled.");
+        else hmReplyToClient(client,"The hm_sendxp command is currently disabled.");
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    args[1] = lower(args[1]);
+    bool temp = xpEnabled;
+    if (args[1] == "true")
+        xpEnabled = true;
+    else if (args[1] == "false")
+        xpEnabled = false;
+    else
+    {
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    if (xpEnabled)
+    {
+        if (xpEnabled != temp)
+        {
+            handle.regConsoleCmd("hm_sendxp","sendXP","Send XP to a player.");
+            hmReplyToClient(client,"The hm_sendxp command is now enabled.");
+        }
+        else hmReplyToClient(client,"The hm_sendxp command is already enabled!");
+        if (!mbEnabled)
+            hmReplyToClient(client,"However, the mailbox plugin is not enabled so sent mail will not be received until enabled.");
+    }
+    else
+    {
+        if (xpEnabled != temp)
+        {
+            handle.unregCmd("hm_sendxp");
+            hmReplyToClient(client,"The hm_sendxp command is now disabled.");
+        }
+        else hmReplyToClient(client,"The hm_sendxp command is already disabled!");
+    }
+    if (xpEnabled != temp)
+        writeConf();
+    return 0;
+}
+
+int admSendSelf(hmHandle &handle, string client, string args[], int argc)
+{
+    if (argc < 2)
+    {
+        if (allowSendSelf) hmReplyToClient(client,"Sending any type of messages to yourself is currently allowed.");
+        else hmReplyToClient(client,"Sending any type of messages to yourself is currently disallowed.");
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    bool temp = allowSendSelf;
+    args[1] = lower(args[1]);
+    if (args[1] == "true")
+        allowSendSelf = true;
+    else if (args[1] == "false")
+        allowSendSelf = false;
+    else
+    {
+        hmReplyToClient(client,"Usage: " + args[0] + "true|false");
+        return 1;
+    }
+    if (allowSendSelf)
+    {
+        if (allowSendSelf != temp)
+            hmReplyToClient(client,"Sending any type of messages to yourself is now allowed.");
+        else hmReplyToClient(client,"Sending any type of messages to yourself is already allowed!");
+    }
+    else
+    {
+        if (allowSendSelf != temp)
+            hmReplyToClient(client,"Sending any type of messages to yourself is now disallowed.");
+        else hmReplyToClient(client,"Sending any type of messages to yourself is already disallowed!");
+    }
+    if (allowSendSelf != temp)
+        writeConf();
+    return 0;
+}
 
 int onPlayerJoin(hmHandle &handle, smatch args)
 {
@@ -73,6 +446,11 @@ int sendMessage(hmHandle &handle, string client, string args[], int argc)
     if (mailbox.uuid != "")
     {
         string rec = stripFormat(lower(mailbox.name));
+        if ((!allowSendSelf) && (stripFormat(lower(client)) == rec))
+        {
+            hmReplyToClient(client,"You are not allowed to send anything to yourself!");
+            return 1;
+        }
         ofstream file ("./halfMod/plugins/mailbox/" + rec + ".mail",ios_base::app);
         if (file.is_open())
         {
@@ -117,6 +495,11 @@ int sendItem(hmHandle &handle, string client, string args[], int argc)
         else
             msgWith = "A shiny gift!";
         string target = stripFormat(lower(mailbox.name));
+        if ((!allowSendSelf) && (stripFormat(lower(client)) == target))
+        {
+            hmReplyToClient(client,"You are not allowed to send anything to yourself!");
+            return 1;
+        }
         // by using the same name for the pattern, we can unhook them both at the same time
         handle.hookPattern(client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: .+ has the following entity data: (\\{.*Tags: \\[\"hmMBItem(" + target + ")\".*\\})$","sendItemCheck");
         handle.hookPattern(client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/ERROR\\]: Couldn't execute command for Server:\\s+data get entity @e\\[tag=hmMBItem" + target + ",limit=1\\]$","sendItemFail");
@@ -197,6 +580,11 @@ int sendChest(hmHandle &handle, string client, string args[], int argc)
         else
             msgWith = "A shiny gift!";
         string target = stripFormat(lower(mailbox.name));
+        if ((!allowSendSelf) && (stripFormat(lower(client)) == target))
+        {
+            hmReplyToClient(client,"You are not allowed to send anything to yourself!");
+            return 1;
+        }
         // by using the same name for the pattern, we can unhook them both at the same time
         // [04:16:59] [Server thread/INFO]: No items were found on player nigathan
         handle.hookPattern("hmMBChest " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: No items were found on player (" + client + ")$","sendChestFailIron");
@@ -308,8 +696,14 @@ int sendXP(hmHandle &handle, string client, string args[], int argc)
             }
             else
                 msgWith = "A shiny gift!";
+            string target = stripFormat(lower(mailbox.name));
+            if ((!allowSendSelf) && (stripFormat(lower(client)) == target))
+            {
+                hmReplyToClient(client,"You are not allowed to send anything to yourself!");
+                return 1;
+            }
             // [04:56:21] [Server thread/INFO]: nigathan has 0 experience levels
-            handle.hookPattern("hmMBXP " + client + " " + stripFormat(lower(mailbox.name)),"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (\\S+) has ([0-9]+) experience levels$","sendXPCheck");
+            handle.hookPattern("hmMBXP " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (\\S+) has ([0-9]+) experience levels$","sendXPCheck");
             hmSendRaw("experience query " + client + " levels");
         }
         else
@@ -393,9 +787,9 @@ int checkMail(hmHandle &handle, string client, string args[], int argc)
                 strftime(tsBuf,17,"[%D %R]",tstamp);
                 json = "[\"[HM] \",";
                 if (it->at(0) == '0')
-                    json += data2str("{\"text\":\"[%i] * \",\"color\":\"gold\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_open %i\"},\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Open\",\"color\":\"blue\"}]}}},",i,i);
+                    json += data2str("{\"text\":\"[%i] * \",\"color\":\"gold\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_open %i\"},\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Open\",\"color\":\"blue\"}]}}},",i,i);
                 else
-                    json += data2str("{\"text\":\"[%i] \",\"color\":\"gray\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_open %i\"},\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Re-open\",\"color\":\"blue\"}]}}},",i,i);
+                    json += data2str("{\"text\":\"[%i] \",\"color\":\"gray\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_open %i\"},\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Re-open\",\"color\":\"blue\"}]}}},",i,i);
                 if (it->at(2) > 51)
                 {
                     if (it->at(0) != '2')
@@ -416,11 +810,11 @@ int checkMail(hmHandle &handle, string client, string args[], int argc)
                 break;
         }
         if ((page > 1) && (page < pages))
-            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"<-- [Prev]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox " + data2str("%i",(page-1)) + "\"}},{\"text\":\"  +  \",\"color\":\"none\"},{\"text\":\"[Next] -->\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox " + data2str("%i",(page+1)) + "\"}}]");
+            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"<-- [Prev]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox " + data2str("%i",(page-1)) + "\"}},{\"text\":\"  +  \",\"color\":\"none\"},{\"text\":\"[Next] -->\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox " + data2str("%i",(page+1)) + "\"}}]");
         else if (page > 1)
-            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"<-- [Previous Page]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox " + data2str("%i",(page-1)) + "\"}}]");
+            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"<-- [Previous Page]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox " + data2str("%i",(page-1)) + "\"}}]");
         else if (page < pages)
-            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Next Page] -->\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox " + data2str("%i",(page+1)) + "\"}}]");
+            hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Next Page] -->\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox " + data2str("%i",(page+1)) + "\"}}]");
     }
     else
         hmReplyToClient(client,"You have no mail! :(");
@@ -499,7 +893,7 @@ int mailOpen(hmHandle &handle, string client, string args[], int argc)
                 {
                     json = " [\"[HM] \",";
                     if (opened != 2)
-                        json += "{\"text\":\"[A] \",\"color\":\"red\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Click to claim this attatchment!\",\"color\":\"red\"}]}},\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_accept " + data2str("%i",item) + "\"}},";
+                        json += "{\"text\":\"[A] \",\"color\":\"red\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Click to claim this attatchment!\",\"color\":\"red\"}]}},\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_accept " + data2str("%i",item) + "\"}},";
                     else
                         json += "{\"text\":\"[A] \",\"color\":\"dark_blue\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"Attatchment already received!\",\"color\":\"dark_blue\"}]}}},";
                     if ((attType == 1) || (attType == 4))
@@ -509,10 +903,10 @@ int mailOpen(hmHandle &handle, string client, string args[], int argc)
                     else if ((attType == 3) || (attType == 6))
                         json += "{\"text\":\"A nicely wrapped package!\",\"color\":\"blue\"}]";
                     hmSendRaw("tellraw " + client + json);
-                    hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Return to sender]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_return " + data2str("%i",item) + "\"}},{\"text\":\"  +  \",\"color\":\"white\"},{\"text\":\"[Delete]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_delete " + data2str("%i",item) + "\"}}]");
+                    hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Return to sender]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_return " + data2str("%i",item) + "\"}},{\"text\":\"  +  \",\"color\":\"white\"},{\"text\":\"[Delete]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_delete " + data2str("%i",item) + "\"}}]");
                 }
                 else
-                    hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Delete]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mb_delete " + data2str("%i",item) + "\"}}]");
+                    hmSendRaw("tellraw " + client + " [\"[HM] \",{\"text\":\"[Delete]\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mb_delete " + data2str("%i",item) + "\"}}]");
                 break;
             }
             i++;
@@ -796,9 +1190,9 @@ void mbNotify(string client)
                     n++;
         }
         if (n > 1)
-            hmSendRaw(data2str("tellraw %s [\"[HM] You have \",{\"text\":\"%i\",\"color\":\"gold\",\"bold\":true},{\"text\":\" unread messages! \",\"color\":\"none\",\"bold\":false},{\"text\":\"Click here\",\"color\":\"blue\",\"underlined\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox\"}},{\"text\":\" to open your mailbox!\",\"color\":\"none\",\"underlined\":false}]",client.c_str(),n));            
+            hmSendRaw(data2str("tellraw %s [\"[HM] You have \",{\"text\":\"%i\",\"color\":\"gold\",\"bold\":true},{\"text\":\" unread messages! \",\"color\":\"none\",\"bold\":false},{\"text\":\"Click here\",\"color\":\"blue\",\"underlined\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox\"}},{\"text\":\" to open your mailbox!\",\"color\":\"none\",\"underlined\":false}]",client.c_str(),n));            
         else if (n > 0)
-            hmSendRaw(data2str("tellraw %s [\"[HM] You have \",{\"text\":\"%i\",\"color\":\"gold\",\"bold\":true},{\"text\":\" unread message! \",\"color\":\"none\",\"bold\":false},{\"text\":\"Click here\",\"color\":\"blue\",\"underlined\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/mailbox\"}},{\"text\":\" to open your mailbox!\",\"color\":\"none\",\"underlined\":false}]",client.c_str(),n));            
+            hmSendRaw(data2str("tellraw %s [\"[HM] You have \",{\"text\":\"%i\",\"color\":\"gold\",\"bold\":true},{\"text\":\" unread message! \",\"color\":\"none\",\"bold\":false},{\"text\":\"Click here\",\"color\":\"blue\",\"underlined\":true,\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!mailbox\"}},{\"text\":\" to open your mailbox!\",\"color\":\"none\",\"underlined\":false}]",client.c_str(),n));            
     }
 }
 
@@ -885,6 +1279,27 @@ string amtTime(long times)
             out += "s";
     }
     return out;
+}
+
+void writeConf()
+{
+    ofstream file ("./halfMod/configs/mailbox.cfg",ios_base::trunc);
+    if (file.is_open())
+    {
+        if (!mbEnabled)
+            file<<"hm_mb_enabled false\n";
+        if (!msgEnabled)
+            file<<"hm_mb_allow_message false\n";
+        if (!chestEnabled)
+            file<<"hm_mb_allow_sendchest false\n";
+        if (!itemEnabled)
+            file<<"hm_mb_allow_senditem false\n";
+        if (!xpEnabled)
+            file<<"hm_mb_allow_sendxp false\n";
+        if (!allowSendSelf)
+            file<<"hm_mb_allow_self false\n";
+        file.close();
+    }
 }
 
 /*

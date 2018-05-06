@@ -1,43 +1,7 @@
-#include <iostream>
-#include <stdio.h>
-#include <string.h>   //strlen
-#include <cstdlib>
-#include <errno.h>
-#include <unistd.h>   //close
-#include <arpa/inet.h>    //close
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <netinet/in.h>
-#include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
-#include <time.h>
-#include <fstream>
-#include <thread>
-#include <atomic>
-#include <regex>
-//#include <fcntl.h>
-#include ".hsBuild.h"
-#include "str_tok.h"
-#include "nigsock.h"
+#include "halfshell_func.h"
 using namespace std;
 
-//#define VERSION		"halfShell v0.2.42"
-#define TRUE		1
-#define FALSE		0
-#define DEFPORT		9422
-#define LOCALHOST	"127.0.0.1"
-#define CONF		"halfshell.conf"
-#define MAXCLIENTS	30
-#define MAXSCREENLEN	400
-
-#define MAX_INTERNAL        7
-#define INTERNAL_RELAY      0
-#define INTERNAL_RELAYTO    1
-#define INTERNAL_RELAYALL   2
-#define INTERNAL_WALL       3
-#define INTERNAL_LIST       4
-#define INTERNAL_RAW        5
-#define INTERNAL_VER        6
+string mcver;
 
 int main(int argc , char *argv[])
 {
@@ -46,100 +10,57 @@ int main(int argc , char *argv[])
 		cerr<<"Missing minecraft screen name"<<endl;
 		return 1;
 	}
-	atomic<bool> showInput;
-	showInput = false;
+	bool showInput = false;
 	string screen = argv[1];
-	string mcver = "";
+	mcver = "";
 	cout<<"Minecraft server screen defined as "<<screen<<"."<<endl;
 	if (argc > 2)
 	    mcver = argv[2];
-	int opt = TRUE;
-	int addrlen, new_socket, activity, i, valread;
-	int max_sd;
-	int master_socket;
-	atomic<int> connectedClients;
-	connectedClients = 0;
+	int addrlen, master_socket;
+	int connectedClients = 0;
 	struct sockaddr_in address;
-	struct timeval timeout;
-	ifstream rFile;
-	nigSock sockets[MAXCLIENTS];
-	string line, buffer, temp;
+	nigSock *sockets;
 	
-	const string internals[] = {
-	                            "relay",   // Relay a command back to the requesting mod as the server
-	                            "relayto", // Relay a command back to the Nth mod as the server
-	                            "relayall",// Relay a command back to all mods as the server
-    	                        "wall",    // Send a message to all mods, note: can be intercepted as a trigger by the mods
-    	                        "list",    // Replies to the requesting mod listing the currently connected mods
-    	                        "raw",     // Sends raw text to the requesting mod
-    	                        ""         // Replies to the requesting mod with version info
-    	                       };
-	
-	//set of socket descriptors
-	fd_set readfds;//, stdinfds;
-	
-	for (i = 0;i < MAXCLIENTS;i++) 
+	string bindIP, allowed;
+	int bindPort;
+	loadConfig(CONF,bindIP,bindPort,allowed);
+	int error;
+	sockets = serverInit(master_socket,addrlen,address,bindIP,bindPort,MAXCLIENTS,error);
+	switch (error)
 	{
-		sockets[i].sock = -1;
-	}
+	    case 1:
+	    {
+	        cerr<<"Failure creating master socket . . .\n";
+	        break;
+        }
+        case 2:
+        {
+            cerr<<"Failure enabling simultaneous socket connections . . .\n";
+            break;
+        }
+        case 3:
+        {
+            cerr<<"Unable to begin listening for incoming connections . . .\n";
+            break;
+        }
+        case 4:
+        {
+            cerr<<"Unable to bind listening server to "<<bindIP<<":"<<bindPort<<" Is something already using this port? . . .";
+            break;
+        }
+        case 0:
+        {
+            cout<<"Listening for connections on "<<bindIP<<":"<<bindPort<<" ...\n";
+            break;
+        }
+        default:
+            cerr<<"An unknown error has occurred . . .\n";
+    }
+    if (error)
+        return error;
 	
-	//create a master socket
-	if((master_socket = socket(AF_INET,SOCK_STREAM,0)) == 0) 
-	{
-		cerr<<"socket creation failure . . ."<<endl;
-		return 1;
-	}
-	
-	//set master socket to allow multiple connections , this is just a good habit, it will work without this
-	if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 )
-	{
-		cerr<<"setsockopt failure . . ."<<endl;
-		return 1;
-	}
-	
-	string bindIP = LOCALHOST;
-	int bindPort = DEFPORT;
-	string allowed = LOCALHOST;
-	rFile.open(CONF);
-	if (rFile.is_open())
-	{
-		while (getline(rFile,line))
-		{
-			if (iswm(nospace(line),"#*")) continue;
-			line = lower(line);
-			if (gettok(line,1,"=") == "ip") bindIP = gettok(line,2,"=");
-			if (gettok(line,1,"=") == "port") bindPort = str2int(gettok(line,2,"="));
-			if (gettok(line,1,"=") == "allowed-ips") allowed = deltok(line,1,"=");
-		}
-		rFile.close();
-	}
-	else
-		cerr<<CONF<<" file missing. Using defaults."<<endl;
-	cout<<"Binding connections to "<<bindIP<<":"<<bindPort<<endl;
-	
-	//type of socket created
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = inet_addr( bindIP.c_str() );
-	address.sin_port = htons( bindPort );
-	
-	if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
-	{
-		cerr<<"socket bind failure . . ."<<endl;
-		return 1;
-	}
-	
-	//try to specify maximum of 3 pending connections for the master socket
-	if (listen(master_socket,3) < 0)
-	{
-		cerr<<"unable to start listen server . . ."<<endl;
-		return 1;
-	}
-	
-	//accept the incoming connection
-	addrlen = sizeof(address);
-	cout<<"Waiting for connections ...\n";
-	
-	thread([&]
+	thread([&sockets, &showInput, &master_socket, &connectedClients]()
+	//thread([&]
 	{
 	    string in;
 	    while (1)
@@ -150,21 +71,10 @@ int main(int argc , char *argv[])
 				if (showInput)
 					cout<<in<<endl;
 				if (connectedClients > 0)
-				{
-					for (int j = 0; j < MAXCLIENTS; j++)
-					{
-						if (sockets[j].mark != "")
-							sockets[j].nWrite(in + "\n");
-					}
-				}
+				    sendToAllClients(sockets,in + "\n");
 				if (in == "]:-:-:-:[###[THREAD COMPLETE]###]:-:-:-:[")
 				{
-					for (int j = 0; j < MAXCLIENTS; j++)
-					{
-						if (sockets[j].isOpen())
-							sockets[j].nClose();
-					}
-					close(master_socket);
+				    closeAllSockets(master_socket,sockets);
 					break;
 				}
 				in = "";
@@ -175,265 +85,27 @@ int main(int argc , char *argv[])
 		terminate();
 	}).detach();
 	
+	int max_sd, activity;
+	//set of socket descriptors
+	fd_set readfds;
+	
 	while (1) 
 	{
-		//clear the socket set
-		FD_ZERO(&readfds);
-		//add master socket to set
-		FD_SET(master_socket, &readfds);
-		max_sd = master_socket;
+	    max_sd = prepSockets(readfds,master_socket,sockets);
 		
-		//FD_ZERO(&stdinfds);
-		//FD_SET(0, &readfds);
-		
-		//add child sockets to set
-		for (i = 0;i < MAXCLIENTS;i++) 
-		{
-			//if valid socket descriptor then add to read list
-			if(sockets[i].sock > 0)
-				FD_SET( sockets[i].sock , &readfds);
-			
-			//highest file descriptor number, need it for the select function
-			if(sockets[i].sock > max_sd)
-				max_sd = sockets[i].sock;
-		}
-		
-		timeout.tv_sec = 0;
-		timeout.tv_usec = 0;
-		
-		//wait for an activity on one of the sockets , timeout is 0, so skip if no activity
-		//activity = select( max_sd + 1 , &readfds , NULL , NULL , &timeout);
+		//wait for an activity on one of the sockets , timeout is null so wait forever
 		activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
 		
 		if ((activity < 0) && (errno!=EINTR)) 
 		{
-			//cerr<<"Select error.\n";
 			cout<<"[!!] Minecraft server offline, halfShell restarting in 5 seconds . . ."<<endl;
 			break;
 		}
-		//else if ((activity == 0) && (errno!=EINTR))
-		//{
-			// impossible timeout
-		//}
 		else
 		{
 			if (FD_ISSET(master_socket, &readfds)) 
-			{
-				if ((new_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0)
-				{
-					cerr<<"accept failure"<<endl;
-					//exit(EXIT_FAILURE);
-				}
-				temp = inet_ntoa(address.sin_addr);
-				if (!istok(allowed,temp," "))
-				{
-					close(new_socket);
-					new_socket=-1;
-					cout<<"Denied incoming connection from "<<temp<<". Not in the allowed-ips list."<<endl;
-				}
-				for (i = 0;i < MAXCLIENTS;i++)
-				{
-					if (!sockets[i].isOpen())
-					{
-						sockets[i].assign(new_socket,address);
-						connectedClients++;
-						break;
-					}
-					else if (i == MAXCLIENTS-1)
-					{
-						cerr<<"Too many open connections. . ."<<endl;
-						//send(new_socket,"Sorry, no room for you right now!\n",35,0);
-						close(new_socket);
-						new_socket = -1;
-					}
-				}
-				if (new_socket > 0)
-				{
-					cout<<"New connection <"<<i<<"> established with "<<sockets[i].ip<<":"<<sockets[i].port<<endl;
-					cout<<"Total open connections: "<<connectedClients<<endl;
-					temp = string(VERSION) + "\t" + screen + "\t" + mcver + "\n";
-					sockets[i].nWrite(temp);
-				}
-			}
-			
-			for (i = 0;i < MAXCLIENTS;i++)
-			{
-				if (sockets[i].sock == 0)
-					continue;
-				if (FD_ISSET(sockets[i].sock,&readfds))
-				{
-					if ((valread = sockets[i].nRead(buffer)) == 0)
-					{
-							//socket is closing
-						if (sockets[i].mark != "")
-							cout<<"Host disconnect <"<<sockets[i].mark<<">: "<<sockets[i].ip<<":"<<sockets[i].port<<endl;
-						else
-							cout<<"Host disconnect <"<<i<<">: "<<sockets[i].ip<<":"<<sockets[i].port<<endl;
-						sockets[i].nClose();
-						connectedClients--;
-						cout<<"Total open connections: "<<connectedClients<<endl;
-					}
-					else if (valread > 0)// read
-					{
-//						cout<<i<<">>"<<buffer<<endl;
-						if (sockets[i].mark == "")
-						{		// handshake
-							cout<<"Client <"<<i<<"> is identifying as: "<<buffer<<endl;
-							sockets[i].mark = buffer;
-							ifstream lateLoad("listo.nada");
-                            if (lateLoad.is_open())
-                            {
-                                lateLoad.close();
-                                remove("listo.nada");
-                                temp = "screen -S " + screen + " -p 0 -X stuff 'list\r'";
-                                system(temp.c_str());
-                            }
-						}
-						else
-						{
-						    if (buffer.compare("hs") == 0)
-					        {
-                                // hs command with no params
-                                temp = "[HS] " + string(VERSION) + " is running Minecraft version \"" + mcver + "\" on screen \"" + screen + "\".\n";
-                                sockets[i].nWrite(temp);
-                                //buffer.clear();
-				            }
-				            else if (buffer.compare(0,3,"hs ") == 0)
-				            {
-				                // hs command with possible params
-				                temp = buffer.substr(3,buffer.find(" ",3,1)-3);
-				                int subcmd = 0;
-				                for (;subcmd < MAX_INTERNAL;subcmd++)
-				                    if (internals[subcmd] == temp)
-				                        break;
-		                        switch (subcmd)
-		                        {
-		                            case INTERNAL_RELAY:
-		                            {
-		                                if ((4 + internals[subcmd].size()) > buffer.size())
-		                                    sockets[i].nWrite("[HS] Usage: hs relay <command ...>\n");
-	                                    else
-	                                    {
-		                                    temp = "[99:99:99] [Server thread/INFO]: <#SERVER> !rcon " + buffer.substr(4 + internals[subcmd].size(),string::npos) + "\n";
-		                                    sockets[i].nWrite(temp);
-	                                    }
-		                                //buffer.clear();
-		                                break;
-	                                }
-	                                case INTERNAL_RELAYTO:
-		                            {
-		                                if ((4 + internals[subcmd].size()) > buffer.size())
-		                                {
-		                                    sockets[i].nWrite("[HS] Usage: hs relayto <N> <command ...>\n");
-		                                    break;
-	                                    }
-		                                temp = buffer.substr(4 + internals[subcmd].size(),buffer.find(" ",4 + internals[subcmd].size(),1)-(4 + internals[subcmd].size()));
-		                                if ((5 + internals[subcmd].size() + temp.size()) > buffer.size())
-		                                    sockets[i].nWrite("[HS] Usage: hs relayto <N> <command ...>\n");
-	                                    else
-	                                    {
-	                                        int sockTo = stoi(temp);
-	                                        if ((sockTo < 0) || (sockTo > MAXCLIENTS) || (sockets[sockTo].mark == ""))
-	                                            sockets[i].nWrite("[HS] Invalid mod: " + temp + "\n");
-	                                        else
-	                                        {
-		                                        temp = "[99:99:99] [Server thread/INFO]: <#SERVER> !rcon " + buffer.substr(5 + internals[subcmd].size() + temp.size(),string::npos) + "\n";
-		                                        sockets[sockTo].nWrite(temp);
-	                                        }
-                                        }
-		                                //buffer.clear();
-		                                break;
-	                                }
-	                                case INTERNAL_RELAYALL:
-		                            {
-		                                if ((4 + internals[subcmd].size()) > buffer.size())
-		                                {
-		                                    sockets[i].nWrite("[HS] Usage: hs relayall <command ...>\n");
-		                                    break;
-	                                    }
-	                                    else
-	                                    {
-	                                        temp = "[99:99:99] [Server thread/INFO]: <#SERVER> !rcon " + buffer.substr(4 + internals[subcmd].size(),string::npos) + "\n";
-	                                        for (int j = 0;j < MAXCLIENTS;j++)
-	                                            if (sockets[j].mark != "")
-        	                                        sockets[j].nWrite(temp);
-                                        }
-		                                //buffer.clear();
-		                                break;
-	                                }
-	                                case INTERNAL_WALL:
-	                                {
-	                                    if ((4 + internals[subcmd].size()) > buffer.size())
-		                                    sockets[i].nWrite("[HS] Usage: hs wall <message ...>\n");
-	                                    else
-	                                    {
-	                                        temp = "[HS] WALL <" + sockets[i].mark + "> " + buffer.substr(4 + internals[subcmd].size(),string::npos) + "\n";
-	                                        for (int j = 0;j < MAXCLIENTS;j++)
-	                                            if (sockets[j].mark != "")
-	                                                sockets[j].nWrite(temp);
-                                        }
-                                        //buffer.clear();
-	                                    break;
-                                    }
-                                    case INTERNAL_LIST:
-                                    {
-                                        temp = "[HS] All currently connected mods (" + to_string(connectedClients) + "/" + to_string(MAXCLIENTS) + "):\n";
-                                        for (int j = 0;j < MAXCLIENTS;j++)
-	                                        if (sockets[j].mark != "")
-	                                            temp = temp + "[HS] " + to_string(j) + ":\t" + sockets[j].mark + "\n";
-                                        sockets[i].nWrite(temp);
-                                        //buffer.clear();
-                                        break;
-                                    }
-                                    case INTERNAL_RAW:
-                                    {
-                                        sockets[i].nWrite(buffer.substr(4 + internals[subcmd].size(),string::npos) + "\n");
-                                        break;
-                                    }
-                                    case INTERNAL_VER:
-                                    {
-                                        temp = "[HS] " + string(VERSION) + " is running Minecraft version \"" + mcver + "\" on screen \"" + screen + "\".\n";
-                                        sockets[i].nWrite(temp);
-                                        //buffer.clear();
-                                        break;
-                                    }
-                                    default:
-                                    {
-                                        temp = "[HS] Unknown command sequence: " + buffer + "\n";
-                                        sockets[i].nWrite(temp);
-                                        //buffer.clear();
-                                    }
-                                }
-			                }
-						    else
-						    {
-						        //buffer = strreplace(buffer,"\"","\\\"") + "\r";
-						        //buffer = strreplace(strreplace(buffer,"$","\\$"),"^","\\^") + "\r";
-						        regex ptrn ("(\\\\+)?\\$");
-						        buffer = regex_replace(buffer,ptrn,"\\$");
-						        ptrn = "(\\\\+)?\\^";
-						        buffer = regex_replace(buffer,ptrn,"\\^");
-						        ptrn = "'";
-						        buffer = regex_replace(buffer,ptrn,"`");
-       						    buffer += "\r";
-							    valread = buffer.size();
-							    for (int i = 0;i <= valread;i += MAXSCREENLEN)
-							    {
-								    temp = "screen -S " + screen + " -p 0 -X stuff '" + strmid(buffer,i,MAXSCREENLEN) + "'";
-								    while (temp.at(temp.size()-2) == '\\')
-								    {
-								        temp.erase(temp.size()-2,1);
-								        i--;
-								    }
-								    if (temp == "screen -S " + screen + " -p 0 -X stuff ''")
-								        i += MAXSCREENLEN;
-								    system(temp.c_str());
-							    }
-						    }
-						}
-					}
-				}
-			}
+			    acceptNewClient(address,addrlen,master_socket,sockets,connectedClients,allowed,screen);
+			handleClients(readfds,sockets,connectedClients,screen);
 		}
 	}
 	sleep(5);

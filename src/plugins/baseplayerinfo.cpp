@@ -6,7 +6,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.0.3"
+#define VERSION "v0.0.6"
 
 string amtTime(/*love you*/long times);
 
@@ -26,7 +26,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     handle.regConsoleCmd("hm_seen","seenPlayer","When was player last online?");
     handle.regAdminCmd("hm_whois","whoisPlayer",FLAG_ADMIN);
     handle.regConsoleCmd("hm_whereami","wherePlayer","Display your whereabouts to everyone on the server.");
-    handle.regConsoleCmd("hm_timetillday","timeTillDay","Display the time until the sun rises.");
+    handle.regConsoleCmd("hm_timetillday","timeTillDay","Display the time until the sun rises or sets.");
     return 0;
 }
 
@@ -120,7 +120,7 @@ int whoisPlayer(hmHandle &handle, string caller, string args[], int argc)
 		for (vector<hmPlayer>::iterator it = targs.begin(), ite = targs.end();it != ite;++it)
 		{
 			stripClient = stripFormat(it->name);
-			handle.hookPattern(caller + " whois","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + stripClient + ") has the following entity data: \\{(.*Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d].*)\\}$","whoisLookup");
+			handle.hookPattern(caller + " whois","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + stripClient + ") has the following entity data: \\{(.*Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d\\].*)\\}$","whoisLookup");
             hmSendRaw("data get entity " + stripClient);
 		}
 	}
@@ -129,12 +129,14 @@ int whoisPlayer(hmHandle &handle, string caller, string args[], int argc)
 
 int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
 {
-    string client = args[1].str(), tags = args[2].str(), caller = gettok(hook.name,1," "), dim, gm, access, lvl, score;
+    hmOutDebug("whois found");
+    string client = args[1].str(), tags = args[2].str(), caller = gettok(hook.name,1," "), dim = "-1", gm = "-1", access, lvl = "0", score = "0";
     string pos = args[3].str() + " " + args[4].str() + " " + args[5].str();
+    //Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d]
     regex ptrn ("Dimension: (-?[0-9]+)");
     smatch ml;
-    regex_search(tags,ml,ptrn);
-    dim = ml[1].str();
+    if (regex_search(tags,ml,ptrn))
+        dim = ml[1].str();
     switch (stoi(dim))
     {
         case -1:
@@ -156,8 +158,8 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
             dim = "Unknown (" + dim + ")";
     }
     ptrn = "playerGameType: (-?[0-9]+)";
-    regex_search(tags,ml,ptrn);
-    gm = ml[1].str();
+    if (regex_search(tags,ml,ptrn))
+        gm = ml[1].str();
     switch (stoi(gm))
     {
         case 0:
@@ -184,11 +186,11 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
             gm = "Unknown (" + gm + ")";
     }
     ptrn = "XpLevel: (-?[0-9]+)";
-    regex_search(tags,ml,ptrn);
-    lvl = ml[1].str();
+    if (regex_search(tags,ml,ptrn))
+        lvl = ml[1].str();
     ptrn = "Score: (-?[0-9]+)";
-    regex_search(tags,ml,ptrn);
-    score = ml[1].str();
+    if (regex_search(tags,ml,ptrn))
+        score = ml[1].str();
     hmPlayer target = hmGetPlayerInfo(client);
     if (target.flags == 0)
         access = "None";
@@ -232,20 +234,25 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
 
 int wherePlayer(hmHandle &handle, string client, string args[], int argc)
 {
-    client = stripFormat(lower(client));
-    handle.hookPattern(client + "WhereAmI","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client + ") has the following entity data: \\{(.*Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d].*)\\}$","whereAmI");
+    if (client == "#SERVER")
+    {
+        hmReplyToClient(client,"You're in the console! Only players can use this command.");
+        return 1;
+    }
+    client = stripFormat(client);
+    handle.hookPattern(client + "WhereAmI","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client + ") has the following entity data: \\{(.*Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d\\].*)\\}$","whereAmI");
     hmSendRaw("data get entity " + client);
     return 0;
 }
 
 int whereAmI(hmHandle &handle, hmHook hook, smatch args)
 {
-    string client = args[1].str(), tags = args[2].str(), dim;
+    string client = args[1].str(), tags = args[2].str(), dim = "-1";
     string pos = args[3].str() + " " + args[4].str() + " " + args[5].str();
     regex ptrn ("Dimension: (-?[0-9]+)");
     smatch ml;
-    regex_search(tags,ml,ptrn);
-    dim = ml[1].str();
+    if (regex_search(tags,ml,ptrn))
+        dim = ml[1].str();
     switch (stoi(dim))
     {
         case -1:
