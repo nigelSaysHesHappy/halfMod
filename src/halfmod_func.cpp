@@ -145,6 +145,7 @@ void loadAllPlugins(hmGlobal &info, vector<hmHandle> &plugins)
     findPlugins("./halfMod/plugins/",paths);
     for (auto it = paths.begin(), ite = paths.end();it != ite;++it)
         loadPlugin(info,plugins,*it);
+    processEvent(plugins,HM_ONPLUGINSLOADED);
 }
 
 void loadAssets(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFilter> &filters)

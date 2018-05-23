@@ -37,11 +37,12 @@
 #define HM_ONGLOBALMSG      176
 #define HM_ONPRINTMSG       184
 #define HM_ONCONSOLERECV    192
-#define HM_ONCUSTOM_1       200
-#define HM_ONCUSTOM_2       208
-#define HM_ONCUSTOM_3       216
-#define HM_ONCUSTOM_4       224
-#define HM_ONCUSTOM_5       232
+#define HM_ONPLUGINSLOADED  200
+#define HM_ONCUSTOM_1       208
+#define HM_ONCUSTOM_2       216
+#define HM_ONCUSTOM_3       224
+#define HM_ONCUSTOM_4       232
+#define HM_ONCUSTOM_5       240
 // The limit of custom event id's is only bound by the max size of an int
 // As long as the id cannot be & by 1, 2, or 4, it is valid
 // These 5 are simply a base to use as an idea
@@ -76,6 +77,7 @@
 #define HM_ONGLOBALMSG_FUNC     "onGlobalMessage"     //    1 = message
 #define HM_ONPRINTMSG_FUNC      "onPrintMessage"      //    1 = message
 #define HM_ONCONSOLERECV_FUNC   "onConsoleReceive"    //    0 = message // Only triggers if the message will be displayed
+#define HM_ONPLUGINSLOADED_FUNC "onPluginsLoaded"     //    Called when all plugins are finished loading
 #define HM_ONCUSTOM_1_FUNC      "onCustom1"           //    Values are defined by the filter
 #define HM_ONCUSTOM_2_FUNC      "onCustom2"           //    Values are defined by the filter
 #define HM_ONCUSTOM_3_FUNC      "onCustom3"           //    Values are defined by the filter
@@ -487,6 +489,8 @@ int hmRemoveConsoleFilter(const std::string &name);
 int hmWritePlayerDat(std::string client, const std::string &data, const std::string &ignore, bool ifNotPresent = false);
 hmConVar *hmFindConVar(const std::string &name);
 std::vector<hmConVar>::iterator hmFindConVarIt(const std::string &name);
+int hmResolveFlag(char flag);
+int hmResolveFlags(const std::string &flags);
 
 #endif
 

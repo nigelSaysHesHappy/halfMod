@@ -129,6 +129,7 @@ bool hmHandle::load(const string &pluginPath, hmGlobal *global)
                 hookEvent(HM_ONGLOBALMSG,HM_ONGLOBALMSG_FUNC);
                 hookEvent(HM_ONPRINTMSG,HM_ONPRINTMSG_FUNC);
                 hookEvent(HM_ONCONSOLERECV,HM_ONCONSOLERECV_FUNC);
+                hookEvent(HM_ONPLUGINSLOADED,HM_ONPLUGINSLOADED_FUNC,false);
                 hookEvent(HM_ONCUSTOM_1,HM_ONCUSTOM_1_FUNC);
                 hookEvent(HM_ONCUSTOM_2,HM_ONCUSTOM_2_FUNC);
                 hookEvent(HM_ONCUSTOM_3,HM_ONCUSTOM_3_FUNC);
@@ -1591,4 +1592,19 @@ vector<hmConVar>::iterator hmFindConVarIt(const string &name)
     return ite;
 }
 
+int hmResolveFlag(char flag)
+{
+    if (!isalpha(flag))
+        return 0;
+    static int FLAGS[26] = { 1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576,2097152,4194304,8388608,16777216,33554431 };
+    return FLAGS[tolower(flag)-97];
+}
+
+int hmResolveFlags(const string &flags)
+{
+    int out = 0;
+    for (auto it = flags.begin(), ite = flags.end();it != ite;++it)
+        out |= hmResolveFlag(*it);
+    return out;
+}
 

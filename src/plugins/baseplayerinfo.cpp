@@ -4,9 +4,10 @@
 #include <ctime>
 #include "halfmod.h"
 #include "str_tok.h"
+#include "nbtmap.h"
 using namespace std;
 
-#define VERSION "v0.0.6"
+#define VERSION "v0.0.7"
 
 string amtTime(/*love you*/long times);
 
@@ -120,7 +121,7 @@ int whoisPlayer(hmHandle &handle, string caller, string args[], int argc)
 		for (vector<hmPlayer>::iterator it = targs.begin(), ite = targs.end();it != ite;++it)
 		{
 			stripClient = stripFormat(it->name);
-			handle.hookPattern(caller + " whois","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + stripClient + ") has the following entity data: \\{(.*Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d\\].*)\\}$","whoisLookup");
+			handle.hookPattern(caller + " whois","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + stripClient + ") has the following entity data: (\\{.*\\})$","whoisLookup");
             hmSendRaw("data get entity " + stripClient);
 		}
 	}
@@ -129,15 +130,10 @@ int whoisPlayer(hmHandle &handle, string caller, string args[], int argc)
 
 int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
 {
-    hmOutDebug("whois found");
-    string client = args[1].str(), tags = args[2].str(), caller = gettok(hook.name,1," "), dim = "-1", gm = "-1", access, lvl = "0", score = "0";
-    string pos = args[3].str() + " " + args[4].str() + " " + args[5].str();
-    //Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d]
-    regex ptrn ("Dimension: (-?[0-9]+)");
-    smatch ml;
-    if (regex_search(tags,ml,ptrn))
-        dim = ml[1].str();
-    switch (stoi(dim))
+    string client = args[1].str(), caller = gettok(hook.name,1," "), dim = "-1", gm = "-1", access;
+    NBTCompound nbt (args[2].str());
+    NBTList position (nbt.get("Pos"));
+    switch (stoi(nbt["Dimension"]))
     {
         case -1:
         {
@@ -157,10 +153,7 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
         default:
             dim = "Unknown (" + dim + ")";
     }
-    ptrn = "playerGameType: (-?[0-9]+)";
-    if (regex_search(tags,ml,ptrn))
-        gm = ml[1].str();
-    switch (stoi(gm))
+    switch (stoi(nbt["playerGameType"]))
     {
         case 0:
         {
@@ -185,12 +178,6 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
         default:
             gm = "Unknown (" + gm + ")";
     }
-    ptrn = "XpLevel: (-?[0-9]+)";
-    if (regex_search(tags,ml,ptrn))
-        lvl = ml[1].str();
-    ptrn = "Score: (-?[0-9]+)";
-    if (regex_search(tags,ml,ptrn))
-        score = ml[1].str();
     hmPlayer target = hmGetPlayerInfo(client);
     if (target.flags == 0)
         access = "None";
@@ -214,10 +201,10 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
     hmReplyToClient(caller,"  UUID: " + target.uuid);
     hmReplyToClient(caller,"  Access: " + access);
     hmReplyToClient(caller,"  Gamemode: " + gm);
-    hmReplyToClient(caller,"  Coords: " + pos);
+    hmReplyToClient(caller,"  Coords: " + gettok(position[0],1,".") + " " + gettok(position[1],1,".") + " " + gettok(position[2],1,"."));
     hmReplyToClient(caller,"  Dimension: " + dim);
-    hmReplyToClient(caller,"  XP Level: " + lvl);
-    hmReplyToClient(caller,"  Score: " + score);
+    hmReplyToClient(caller,"  XP Level: " + nbt["XpLevel"]);
+    hmReplyToClient(caller,"  Score: " + nbt["Score"]);
     hmReplyToClient(caller,"  Online: " + amtTime(cTime-target.join));
     if (target.death > 0)
     {
@@ -240,20 +227,17 @@ int wherePlayer(hmHandle &handle, string client, string args[], int argc)
         return 1;
     }
     client = stripFormat(client);
-    handle.hookPattern(client + "WhereAmI","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client + ") has the following entity data: \\{(.*Pos: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d\\].*)\\}$","whereAmI");
+    handle.hookPattern(client + "WhereAmI","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client + ") has the following entity data: (\\{.*\\})$","whereAmI");
     hmSendRaw("data get entity " + client);
     return 0;
 }
 
 int whereAmI(hmHandle &handle, hmHook hook, smatch args)
 {
-    string client = args[1].str(), tags = args[2].str(), dim = "-1";
-    string pos = args[3].str() + " " + args[4].str() + " " + args[5].str();
-    regex ptrn ("Dimension: (-?[0-9]+)");
-    smatch ml;
-    if (regex_search(tags,ml,ptrn))
-        dim = ml[1].str();
-    switch (stoi(dim))
+    string client = args[1].str(), dim = "-1";
+    NBTCompound nbt (args[2].str());
+    NBTList position (nbt.get("Pos"));
+    switch (stoi(nbt["Dimension"]))
     {
         case -1:
         {
@@ -273,7 +257,7 @@ int whereAmI(hmHandle &handle, hmHook hook, smatch args)
         default:
             dim = "Unknown (" + dim + ")";
     }
-    hmSendMessageAll(hmGetPlayerInfo(client).name + " is at coordinates ( " + pos + " ) in the " + dim + ".");
+    hmSendMessageAll(hmGetPlayerInfo(client).name + " is at coordinates ( " + gettok(position[0],1,".") + " " + gettok(position[1],1,".") + " " + gettok(position[2],1,".") + " ) in the " + dim + ".");
     handle.unhookPattern(hook.name);
     return 1;
 }
