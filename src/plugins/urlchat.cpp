@@ -295,16 +295,3 @@ string html2txt(string text)
     return text;
 }
 
-///usr/bin/clang++-3.8 -std=c++11 -stdlib=libc++ -I ../include -o "compiled/urlchat.hmo" ../o/halfmod.o ../o/str_tok.o -shared "urlchat.cpp" -lpthread -fPIC
-
-
-
-
-
-
-
-
-
-
-
-

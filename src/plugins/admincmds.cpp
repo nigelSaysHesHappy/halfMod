@@ -9,7 +9,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.9"
+#define VERSION		"v0.1.0"
 
 int defBanTime = 0;
 
@@ -22,7 +22,7 @@ string kickButton(string name, int socket, string ip, string client)
     return "Kicking all players . . .";
 }
 
-string floodButton(string name, int socket, string ip, string client)
+/*string floodButton(string name, int socket, string ip, string client)
 {
     hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !rcon hm_flood");
     return "Toggled eternal flood . . .";
@@ -32,7 +32,7 @@ string droughtButton(string name, int socket, string ip, string client)
 {
     hmSendRaw("hs raw [99:99:99] [Server thread/INFO]: <" + client + "> !rcon hm_drought");
     return "Toggled eternal drought . . .";
-}
+}*/
 
 string slayButton(string name, int socket, string ip, string client)
 {
@@ -81,8 +81,8 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
             *(void **) (&addConfigButtonCallback) = it->getFunc("addConfigButtonCallback");
             *(void **) (&addConfigButtonCmd) = it->getFunc("addConfigButtonCmd");
             (*addConfigButtonCallback)("kick","Kick All",FLAG_KICK,&kickButton);
-            (*addConfigButtonCallback)("flood","Toggle Flood",FLAG_WEATHER,&floodButton);
-            (*addConfigButtonCallback)("drought","Toggle Drought",FLAG_WEATHER,&droughtButton);
+            //(*addConfigButtonCallback)("flood","Toggle Flood",FLAG_WEATHER,&floodButton);
+            //(*addConfigButtonCallback)("drought","Toggle Drought",FLAG_WEATHER,&droughtButton);
             (*addConfigButtonCmd)("slay","Slay All",FLAG_SLAY,"hm_slay %all");
         }
     }

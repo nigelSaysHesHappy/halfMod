@@ -3,7 +3,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.6"
+#define VERSION		"v0.0.8"
 
 bool skullDrop = true;
 
@@ -20,6 +20,8 @@ string toggleButton(string name, int socket, string ip, string client)
     return "Players will now drop their skull on death . . .";
 }
 
+int headCmd(hmHandle &handle, string client, string args[], int argc);
+
 extern "C" {
 
 int onPluginStart(hmHandle &handle, hmGlobal *global)
@@ -34,6 +36,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
                         VERSION,
                         "http://you.justca.me/from/head"    );
     handle.hookConVarChange(handle.createConVar("drop_head","true","Enable or disable dropping heads on death.",FCVAR_NOTIFY,true,0.0,true,1.0),"cChange");
+    handle.regAdminCmd("hm_givemehead",&headCmd,FLAG_CHEATS,"Get the head of a player");
     for (auto it = global->extensions.begin(), ite = global->extensions.end();it != ite;++it)
     {
         if (it->getExtension() == "webgui")
@@ -61,5 +64,16 @@ int onPlayerDeath(hmHandle &handle, smatch args)
     return 0;
 }
 
+}
+
+int headCmd(hmHandle &handle, string client, string args[], int argc)
+{
+    if (argc < 2)
+    {
+        hmReplyToClient(client,"Usage: " + args[0] + " <player>");
+        return 1;
+    }
+    hmSendRaw("give " + client + " minecraft:player_head{SkullOwner:\"" + args[1] + "\"}");
+    return 0;
 }
 

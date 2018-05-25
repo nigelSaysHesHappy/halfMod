@@ -1,5 +1,13 @@
 Commit: Current
 
+Updated nbtmap.h
+villager_shops plugin is more stable
+Ported telepearl plugin from master branch to dev-1.13
+skulldrop plugin now has a command to give yourself a player's head
+Added new plugin `warp_points`
+
+Commit: 47d2437
+
 Added a new library `nbtmap.h`:
 * Fast and easy NBT parsing header-only library
 * Very small, has no error checking at all. Assumes all NBT is valid and works 100% with all valid NBT

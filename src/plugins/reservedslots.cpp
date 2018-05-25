@@ -54,6 +54,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
             (*addConfigButtonCallback)("decreaseSlots","Decrease Rsvp",FLAG_CVAR,&decreaseButton);
         }
     }
+    //cout<<"poop\n";
     return 0;
 }
 

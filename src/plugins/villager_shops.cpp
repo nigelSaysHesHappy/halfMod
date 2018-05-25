@@ -4,7 +4,7 @@
 #include "nbtmap.h"
 using namespace std;
 
-#define VERSION		"v0.2.2"
+#define VERSION		"v0.2.3"
 
 struct Trade
 {
@@ -491,17 +491,11 @@ NBTList parseChestNBT(NBTList &items, vector<TradeStock> &trades)
     {
         NBTCompound item (*it);
         int slot = stoi(item.get("Slot")) % 9;
-        NBTCompound comp (item.get());
-        comp.erase("Slot");
-        comp.erase("Count");
-        NBTCompound sellNo;
+        NBTCompound sell;
         if (slot < trades.size())
-            sellNo.parse(trades[slot].sell);
-        sellNo.erase("Count");
-        if ((comp.get("id") == sellNo.get("id")) && (comp.get("tag") == sellNo.get("tag")))
-        {
+            sell.parse(trades[slot].sell);
+        if ((item.get("id") == sell.get("id")) && (item.get("tag") == sell.get("tag")))
             counts[slot] += stoi(item.get("Count"));
-        }
         else
         {
             item["Slot"] = to_string(index++) + "b";
@@ -523,7 +517,7 @@ NBTList parseChestNBT(NBTList &items, vector<TradeStock> &trades)
         trades[i].uses = 2147483647 - trades[i].stock;
         stock.push_back("\"" + to_string(i) + ";" + to_string(trades[i].stock) + "\"");
     }
-    items.parse(unused.getList());
+    items = unused;
     return stock;
 }
 
