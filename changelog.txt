@@ -1,5 +1,9 @@
 Commit: Current
 
+Updated `telepearl` plugin to use `hmProcessTargets` for the `hm_telepearl` command
+
+Commit: 47dfccd
+
 Updated nbtmap.h
 villager_shops plugin is more stable
 Ported telepearl plugin from master branch to dev-1.13

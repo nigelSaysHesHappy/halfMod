@@ -4,7 +4,7 @@
 #include "nbtmap.h"
 using namespace std;
 
-#define VERSION "v0.0.1"
+#define VERSION "v0.0.2"
 
 int setPearlTarget(hmHandle &handle, string client, string args[], int argc);
 int uuidLookup(hmHandle &handle, hmHook hook, smatch args);
@@ -102,16 +102,21 @@ int setPearlTarget(hmHandle &handle, string client, string args[], int argc)
     dat->custom = custom;
     if (argc > 1)
     {
-        if (hmIsPlayerOnline(args[1]))
+        vector<hmPlayer> targs;
+        int targn = hmProcessTargets(client,args[1],targs,FILTER_NAME|FILTER_NO_SELECTOR);
+        if (targn == 1)
         {
-            hmPlayer target = hmGetPlayerInfo(args[1]);
-            handle.hookPattern("telepearlLookup " + client + " " + args[1],"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + target.name + ") has the following entity data: (\\{.*\\})$",&uuidLookup);
-            hmSendRaw("data get entity " + args[1]);
+            string target = targs.begin()->name;
+            handle.hookPattern("telepearlLookup " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + target + ") has the following entity data: (\\{.*\\})$",&uuidLookup);
+            hmSendRaw("data get entity " + target);
         }
         else
         {
             hmSendRaw("tag " + client + " remove hmPearl");
-            hmReplyToClient(client,"Player must be online!");
+            if (targn > 1)
+                hmReplyToClient(client,"You can only select one player!");
+            else
+                hmReplyToClient(client,"Player must be online!");
         }
     }
     else
@@ -151,14 +156,4 @@ int catchPearl(hmHandle &handle, hmHook hook, smatch args)
         hmSendRaw("tag " + client + " remove hmPearl");
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
 
