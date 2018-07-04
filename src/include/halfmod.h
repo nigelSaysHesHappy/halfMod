@@ -2,6 +2,7 @@
 #define halfmod
 
 #include <vector>
+#include <unordered_map>
 #include <regex>
 #include <string>
 #include <chrono>
@@ -38,11 +39,12 @@
 #define HM_ONPRINTMSG       184
 #define HM_ONCONSOLERECV    192
 #define HM_ONPLUGINSLOADED  200
-#define HM_ONCUSTOM_1       208
-#define HM_ONCUSTOM_2       216
-#define HM_ONCUSTOM_3       224
-#define HM_ONCUSTOM_4       232
-#define HM_ONCUSTOM_5       240
+#define HM_ONPLUGINEND      208
+#define HM_ONCUSTOM_1       216
+#define HM_ONCUSTOM_2       224
+#define HM_ONCUSTOM_3       232
+#define HM_ONCUSTOM_4       240
+#define HM_ONCUSTOM_5       248
 // The limit of custom event id's is only bound by the max size of an int
 // As long as the id cannot be & by 1, 2, or 4, it is valid
 // These 5 are simply a base to use as an idea
@@ -155,10 +157,24 @@ struct hmPlugin
     std::string version;
 };
 
+struct hmPlayer
+{
+    std::string name;
+    int flags;
+    std::string uuid;
+    std::string ip;
+    int join;
+    int quit;
+    std::string quitmsg;
+    int death;
+    std::string deathmsg;
+    std::string custom;
+};
+
 struct hmCommand
 {
     std::string cmd;
-    int (*func)(hmHandle&,std::string,std::string[],int);
+    int (*func)(hmHandle&,const hmPlayer&,std::string[],int);
     int flag;
     std::string desc;
 };
@@ -184,20 +200,6 @@ struct hmEvent
     int event;
     int (*func)(hmHandle&);
     int (*func_with)(hmHandle&,std::smatch);
-};
-
-struct hmPlayer
-{
-    std::string name;
-    int flags;
-    std::string uuid;
-    std::string ip;
-    int join;
-    int quit;
-    std::string quitmsg;
-    int death;
-    std::string deathmsg;
-    std::string custom;
 };
 
 struct hmAdmin
@@ -273,10 +275,13 @@ class hmConVar
 
 struct hmGlobal
 {
-    std::vector<hmPlayer> players;
-    std::vector<hmAdmin> admins;
+    //std::vector<hmPlayer> players;
+    std::unordered_map<std::string,hmPlayer> players;
+    //std::vector<hmAdmin> admins;
+    std::unordered_map<std::string,hmAdmin> admins;
     std::vector<hmPlugin> pluginList;
-    std::vector<hmConVar> conVars;
+    //std::vector<hmConVar> conVars;
+    std::unordered_map<std::string,hmConVar> conVars;
     std::string mcVer;
     std::string hmVer;
     std::string hsVer;
@@ -295,7 +300,8 @@ struct hmGlobal
 class hmHandle
 {
     public:
-        std::vector<hmCommand> cmds;
+        //std::vector<hmCommand> cmds;
+        std::unordered_map<std::string,hmCommand> cmds;
         std::string vars;
         
         // create a new object
@@ -330,12 +336,12 @@ class hmHandle
         // register an admin command
         // returns total number of commands registered by plugin, -1 on error
         int regAdminCmd(const std::string &command, const std::string &function, int flags, const std::string &description = "");
-        int regAdminCmd(const std::string &command, int (*func)(hmHandle&,std::string,std::string[],int), int flags, const std::string &description = "");
+        int regAdminCmd(const std::string &command, int (*func)(hmHandle&,const hmPlayer&,std::string[],int), int flags, const std::string &description = "");
         
         // register a user command
         // returns total number of commands registered by plugin, -1 on error
         int regConsoleCmd(const std::string &command, const std::string &function, const std::string &description = "");
-        int regConsoleCmd(const std::string &command, int (*func)(hmHandle&,std::string,std::string[],int), const std::string &description = "");
+        int regConsoleCmd(const std::string &command, int (*func)(hmHandle&,const hmPlayer&,std::string[],int), const std::string &description = "");
         
         // remove all user or admin commands that are 'command'
         // returns total number of commands registered by plugin
@@ -351,13 +357,13 @@ class hmHandle
         int unhookPattern(const std::string &name);
         
         // returns a copy of the hmCommand struct containing 'command'
-        hmCommand findCmd(const std::string &command);
+        bool findCmd(const std::string &command, hmCommand &cmd);
         
         // returns a copy of the hmHook struct by name
-        hmHook findHook(const std::string &name);
+        bool findHook(const std::string &name, hmHook &hook);
         
         // returns a copy of the hmEvent struct by event
-        hmEvent findEvent(int event);
+        bool findEvent(int event, hmEvent &evnt);
         
         std::vector<hmHook> hooks;
         
@@ -375,7 +381,7 @@ class hmHandle
         int triggerTimer(const std::string &name);
         
         // returns a timer by name
-        hmTimer findTimer(const std::string &name);
+        bool findTimer(const std::string &name, hmTimer &timer);
         
         std::vector<hmTimer> timers;
         
@@ -397,7 +403,8 @@ class hmHandle
         std::vector<std::string> conVarNames;
         bool loaded;
         hmInfo info;
-        std::vector<hmEvent> events;
+        //std::vector<hmEvent> events;
+        std::unordered_map<int,hmEvent> events;
         void *module;
         std::string API_VER;
         std::string modulePath;
@@ -445,7 +452,7 @@ class hmExtension
         int triggerTimer(const std::string &name);
         
         // returns a timer by name
-        hmExtTimer findTimer(const std::string &name);
+        bool findTimer(const std::string &name, hmExtTimer &timer);
         
         std::vector<hmExtTimer> timers;
         bool invalidTimers;
@@ -460,18 +467,21 @@ class hmExtension
 };
 
 
-int mcVerInt(const std::string &version);
+int mcVerInt(std::string version);
 void mkdirIf(const char *path);
 std::string stripFormat(const std::string &str);
 hmGlobal *recallGlobal(hmGlobal *global);
 void hmSendRaw(std::string raw, bool output = true);
 void hmServerCommand(const std::string &raw, bool output = true);
 void hmReplyToClient(const std::string &client, const std::string &message);
+void hmReplyToClient(const hmPlayer &client, const std::string &message);
 void hmSendCommandFeedback(const std::string &client, const std::string &message);
+void hmSendCommandFeedback(const hmPlayer &client, const std::string &message);
 void hmSendMessageAll(const std::string &message);
 bool hmIsPlayerOnline(std::string client);
 hmPlayer hmGetPlayerInfo(std::string client);
-std::vector<hmPlayer>::iterator hmGetPlayerIterator(std::string client);
+std::unordered_map<std::string,hmPlayer>::iterator hmGetPlayerIterator(std::string client);
+hmPlayer* hmGetPlayerPtr(std::string client);
 std::string hmGetPlayerUUID(std::string client);
 std::string hmGetPlayerIP(std::string client);
 int hmGetPlayerFlags(std::string client);
@@ -482,13 +492,15 @@ hmPlayer hmGetPlayerData(std::string client);
 void hmLog(std::string data, int logType, std::string logFile);
 int hmProcessTargets(std::string client, std::string target, std::vector<hmPlayer> &targList, int filter);
 int hmProcessTargetsPtr(std::string client, std::string target, std::vector<hmPlayer*> &targList, int filter);
+int hmProcessTargets(const hmPlayer &client, const std::string &target, std::vector<hmPlayer> &targList, int filter);
+int hmProcessTargetsPtr(const hmPlayer &client, const std::string &target, std::vector<hmPlayer*> &targList, int filter);
 bool hmIsPluginLoaded(const std::string &nameOrPath, const std::string &version = "");
 std::string hmGetPluginVersion(const std::string &nameOrPath);
 int hmAddConsoleFilter(const std::string &name, const std::string &ptrn, short blocking = HM_BLOCK_OUTPUT, int event = 0);
 int hmRemoveConsoleFilter(const std::string &name);
 int hmWritePlayerDat(std::string client, const std::string &data, const std::string &ignore, bool ifNotPresent = false);
 hmConVar *hmFindConVar(const std::string &name);
-std::vector<hmConVar>::iterator hmFindConVarIt(const std::string &name);
+std::unordered_map<std::string,hmConVar>::iterator hmFindConVarIt(const std::string &name);
 int hmResolveFlag(char flag);
 int hmResolveFlags(const std::string &flags);
 

@@ -5,7 +5,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION     "v0.0.6"
+#define VERSION     "v0.0.7"
 
 bool loadMotd();
 string parseMotdLine(string client, string line);
@@ -76,7 +76,7 @@ int enablePlugin(hmConVar &cvar, string oldVal, string newVal)
     return 0;
 }
 
-int reloadMotd(hmHandle &handle, string client, string args[], int argc)
+int reloadMotd(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (!motdEnabled)
         hmReplyToClient(client,"The MOTD plugin is not enabled!");

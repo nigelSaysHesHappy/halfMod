@@ -5,7 +5,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.7"
+#define VERSION "v0.1.8"
 
 #define LOG_FILTER_TEXT     0
 #define LOG_FILTER_REGEX    1
@@ -47,7 +47,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     return 0;
 }
 
-int publicLog(hmHandle &handle, string client, string args[], int argc)
+int publicLog(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     int length = 5;
     string filter = "";
@@ -94,17 +94,18 @@ int publicLog(hmHandle &handle, string client, string args[], int argc)
         else
         {
             logInfo temp;
-            temp.client = client;
-            temp.handle = client + ":" + to_string(rand());
+            temp.client = client.name;
+            temp.handle = client.name + ":" + to_string(rand());
             for (int i = 1;i < argc;i++)
                 temp.message = temp.message + args[i] + " ";
-            if (client != "#SERVER")
+            if (client.name != "#SERVER")
             {
                 pendingLog.push_back(temp);
                 //[12:12:35] [Server thread/INFO]: nigathan has the following entity data: [-299.73073281022636d, 102.94437987049848d, -29.250267740956563d]
-                handle.hookPattern(temp.handle,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + stripFormat(client) + " has the following entity data: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d\\]$","publicPos");
-                handle.hookPattern(temp.handle,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + stripFormat(client) + " has the following entity data: (-?[0-9]+)$","publicDim");
-                hmSendRaw("data get entity " + client + " Pos\ndata get entity " + client + " Dimension");
+                string strip = stripFormat(client.name);
+                handle.hookPattern(temp.handle,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + strip + " has the following entity data: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d\\]$","publicPos");
+                handle.hookPattern(temp.handle,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + strip + " has the following entity data: (-?[0-9]+)$","publicDim");
+                hmSendRaw("data get entity " + strip + " Pos\ndata get entity " + strip + " Dimension");
             }
             else
             {
@@ -116,7 +117,7 @@ int publicLog(hmHandle &handle, string client, string args[], int argc)
                     tstamp = localtime(&cTime);
                     char tsBuf[18];
                     strftime(tsBuf,18,"[%D %R] ",tstamp);
-                    file<<tsBuf<<"<"<<client<<"> "<<temp.message<<endl;
+                    file<<tsBuf<<"<"<<client.name<<"> "<<temp.message<<endl;
                     file.close();
                     hmReplyToClient(client,"Public log updated!");
                 }
@@ -255,9 +256,9 @@ int publicDim(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int selfLog(hmHandle &handle, string client, string args[], int argc)
+int selfLog(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
-    if (client == "#SERVER")
+    if (client.name == "#SERVER")
     {
         hmReplyToClient(client,"The captain's log is only available for players!");
         return 1;
@@ -307,19 +308,20 @@ int selfLog(hmHandle &handle, string client, string args[], int argc)
         else
         {
             logInfo temp;
-            temp.client = client;
-            temp.handle = client + ":" + to_string(rand());
+            temp.client = client.name;
+            temp.handle = client.name + ":" + to_string(rand());
             for (int i = 1;i < argc;i++)
                 temp.message = temp.message + args[i] + " ";
             pendingLog.push_back(temp);
             //[12:12:35] [Server thread/INFO]: nigathan has the following entity data: [-299.73073281022636d, 102.94437987049848d, -29.250267740956563d]
-            handle.hookPattern(temp.handle,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + stripFormat(client) + " has the following entity data: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d\\]$","selfPos");
-            handle.hookPattern(temp.handle,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + stripFormat(client) + " has the following entity data: (-?[0-9]+)$","selfDim");
-            hmSendRaw("data get entity " + client + " Pos\ndata get entity " + client + " Dimension");
+            string strip = stripFormat(client.name);
+            handle.hookPattern(temp.handle,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + strip + " has the following entity data: \\[([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d, ([^d.]+)\\.?[0-9]*d\\]$","selfPos");
+            handle.hookPattern(temp.handle,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + strip + " has the following entity data: (-?[0-9]+)$","selfDim");
+            hmSendRaw("data get entity " + strip + " Pos\ndata get entity " + strip + " Dimension");
             return 0;
         }
     }
-    ifstream file ("./halfMod/plugins/playerLogs/players/" + stripFormat(lower(client)) + ".log");
+    ifstream file ("./halfMod/plugins/playerLogs/players/" + stripFormat(lower(client.name)) + ".log");
     if (file.is_open())
     {
         vector<string> log;

@@ -9,7 +9,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.1.0"
+#define VERSION		"v0.1.1"
 
 int defBanTime = 0;
 
@@ -161,7 +161,7 @@ int onWorldInit(hmHandle &handle, smatch args)
 	return 0;
 }
 
-int kickPlayer(hmHandle &handle, string client, string args[], int argc)
+int kickPlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
 	if (argc < 2)
 		hmReplyToClient(client,"Usage: " + args[0] + " <target>");
@@ -185,14 +185,14 @@ int kickPlayer(hmHandle &handle, string client, string args[], int argc)
 			{
 				hmSendRaw("kick " + it->name + " " + reason);
 				hmSendCommandFeedback(client,"Kicked player " + it->name + " (" + reason + ")");
-				hmLog(client + " kicked player " + it->name + " (" + reason + ")",LOG_KICK,"bans.log"); // will only log if (global->logMethod & LOG_KICK)
+				hmLog(client.name + " kicked player " + it->name + " (" + reason + ")",LOG_KICK,"bans.log"); // will only log if (global->logMethod & LOG_KICK)
 			}
 		}
 	}
 	return 0;
 }
 
-int banPlayer(hmHandle &handle, string client, string args[], int argc)
+int banPlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
 	if (argc < 2)
 		hmReplyToClient(client,"Usage: " + args[0] + " <target> [minutes, 0 = permanent] [reason]");
@@ -237,14 +237,14 @@ int banPlayer(hmHandle &handle, string client, string args[], int argc)
 				if (banTime == 0)
 				{
 					hmSendCommandFeedback(client,"Permanently banned player " + it->name + " (" + reason + ")");
-					hmLog(client + " permanently banned player " + it->name + " (" + reason + ")",LOG_BAN,"bans.log");
+					hmLog(client.name + " permanently banned player " + it->name + " (" + reason + ")",LOG_BAN,"bans.log");
 				}
 				else
 				{
 					if (oFile.is_open())
 						oFile<<"banExpire "<<cTime+(banTime*60)<<" "<<it->name<<endl;
 					handle.createTimer("unban",banTime*60,"banExpire",data2str("banExpire %lu %s",cTime,it->name.c_str()));
-					hmLog(data2str("%s banned player %s for %i minute(s) (%s)",client.c_str(),it->name.c_str(),banTime,reason.c_str()),LOG_BAN,"bans.log");
+					hmLog(data2str("%s banned player %s for %i minute(s) (%s)",client.name.c_str(),it->name.c_str(),banTime,reason.c_str()),LOG_BAN,"bans.log");
 					hmSendCommandFeedback(client,data2str("Banned player %s for %i minute(s) (%s)",it->name.c_str(),banTime,reason.c_str()));
 				}
 			}
@@ -257,7 +257,7 @@ int banPlayer(hmHandle &handle, string client, string args[], int argc)
 	return 0;
 }
 
-int banIP(hmHandle &handle, string client, string args[], int argc)
+int banIP(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
 	if (argc < 2)
 		hmReplyToClient(client,"Usage: " + args[0] + " <target|IP> [minutes, 0 = permanent] [reason]");
@@ -296,14 +296,14 @@ int banIP(hmHandle &handle, string client, string args[], int argc)
 			if (banTime == 0)
 			{
 				hmSendCommandFeedback(client,"Permanently banned IP " + args[1] + " (" + reason + ")");
-				hmLog(client + " permanently banned ip " + args[1] + " (" + reason + ")",LOG_BAN,"bans.log");
+				hmLog(client.name + " permanently banned ip " + args[1] + " (" + reason + ")",LOG_BAN,"bans.log");
 			}
 			else
 			{
 				if (oFile.is_open())
 					oFile<<"ipbanExpire "<<cTime+(banTime*60)<<" "<<args[1]<<endl;
 				handle.createTimer("unban",banTime*60,"ipbanExpire",data2str("ipbanExpire %lu %s",cTime,args[1].c_str()));
-				hmLog(data2str("%s banned ip %s for %i minute(s) (%s)",client.c_str(),args[1].c_str(),banTime,reason.c_str()),LOG_BAN,"bans.log");
+				hmLog(data2str("%s banned ip %s for %i minute(s) (%s)",client.name.c_str(),args[1].c_str(),banTime,reason.c_str()),LOG_BAN,"bans.log");
 				hmSendCommandFeedback(client,data2str("Banned IP %s for %i minute(s) (%s)",args[1].c_str(),banTime,reason.c_str()));
 			}
 		}
@@ -321,14 +321,14 @@ int banIP(hmHandle &handle, string client, string args[], int argc)
 					if (banTime == 0)
 					{
 						hmSendCommandFeedback(client,"Permanently ip-banned player " + it->name + " (" + reason + ")");
-						hmLog(client + " permanently ip-banned player " + it->name + ":" + it->ip + " (" + reason + ")",LOG_BAN,"bans.log");
+						hmLog(client.name + " permanently ip-banned player " + it->name + ":" + it->ip + " (" + reason + ")",LOG_BAN,"bans.log");
 					}
 					else
 					{
 						if (oFile.is_open())
 							oFile<<"ipbanExpire "<<cTime+(banTime*60)<<" "<<it->name<<endl;
 						handle.createTimer("unban",banTime*60,"ipbanExpire",data2str("ipbanExpire %lu %s",cTime,it->name.c_str()));
-						hmLog(data2str("%s ip-banned player %s (%s) for %i minute(s) (%s)",client.c_str(),it->name.c_str(),it->ip.c_str(),banTime,reason.c_str()),LOG_BAN,"bans.log");
+						hmLog(data2str("%s ip-banned player %s (%s) for %i minute(s) (%s)",client.name.c_str(),it->name.c_str(),it->ip.c_str(),banTime,reason.c_str()),LOG_BAN,"bans.log");
 						hmSendCommandFeedback(client,data2str("IP-Banned player %s for %i minute(s) (%s)",it->name.c_str(),banTime,reason.c_str()));
 					}
 				}
@@ -342,7 +342,7 @@ int banIP(hmHandle &handle, string client, string args[], int argc)
 	return 0;
 }
 
-int unbanPlayer(hmHandle &handle, string client, string args[], int argc)
+int unbanPlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
 	if (argc < 2)
 		hmReplyToClient(client,"Usage: " + args[0] + " <target>");
@@ -350,12 +350,12 @@ int unbanPlayer(hmHandle &handle, string client, string args[], int argc)
 	{
 		hmSendRaw("pardon " + args[1]);
 		hmSendCommandFeedback(client,"Lifted the ban on player " + args[1]);
-		hmLog(client + " unbanned player " + args[1],LOG_BAN,"bans.log");
+		hmLog(client.name + " unbanned player " + args[1],LOG_BAN,"bans.log");
 	}
 	return 0;
 }
 
-int unbanIP(hmHandle &handle, string client, string args[], int argc)
+int unbanIP(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
 	if (argc < 2)
 		hmReplyToClient(client,"Usage: " + args[0] + " <target|IP>");
@@ -365,7 +365,7 @@ int unbanIP(hmHandle &handle, string client, string args[], int argc)
 		{
 			hmSendRaw("pardon-ip " + args[1]);
 			hmSendCommandFeedback(client,"Lifted the ban on ip " + args[1]);
-			hmLog(client + " unbanned ip " + args[1],LOG_BAN,"bans.log");
+			hmLog(client.name + " unbanned ip " + args[1],LOG_BAN,"bans.log");
 		}
 		else
 		{
@@ -376,14 +376,14 @@ int unbanIP(hmHandle &handle, string client, string args[], int argc)
 			{
 				hmSendRaw("pardon-ip " + temp.ip);
 				hmSendCommandFeedback(client,"Lifted the ip-ban on player " + args[1]);
-				hmLog(client + " unbanned ip " + temp.ip + " via player ID (" + args[1] + ")",LOG_BAN,"bans.log");
+				hmLog(client.name + " unbanned ip " + temp.ip + " via player ID (" + args[1] + ")",LOG_BAN,"bans.log");
 			}
 		}
 	}
 	return 0;
 }
 
-int opPlayer(hmHandle &handle, string client, string args[], int argc)
+int opPlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
 	if (argc < 2)
 		hmReplyToClient(client,"Usage: " + args[0] + " <target>");
@@ -397,13 +397,13 @@ int opPlayer(hmHandle &handle, string client, string args[], int argc)
 		{
 			hmSendRaw("op " + it->name);
 			hmSendCommandFeedback(client,"Granted operator status for player " + it->name);
-			hmLog(client + " Granted operator status for player " + it->name,LOG_OP,"op.log");
+			hmLog(client.name + " Granted operator status for player " + it->name,LOG_OP,"op.log");
 		}
 	}
 	return 0;
 }
 
-int deopPlayer(hmHandle &handle, string client, string args[], int argc)
+int deopPlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
 	if (argc < 2)
 		hmReplyToClient(client,"Usage: " + args[0] + " <target>");
@@ -417,7 +417,7 @@ int deopPlayer(hmHandle &handle, string client, string args[], int argc)
 		{
 			hmSendRaw("deop " + it->name);
 			hmSendCommandFeedback(client,"Revoked operator status for player " + it->name);
-			hmLog(client + " Revoked operator status for player " + it->name,LOG_OP,"op.log");
+			hmLog(client.name + " Revoked operator status for player " + it->name,LOG_OP,"op.log");
 		}
 	}
 	return 0;
@@ -482,7 +482,7 @@ int ipbanExpire(hmHandle &handle, string args)
 	return 1;
 }
 
-int addTime(hmHandle &handle, string client, string args[], int argc)
+int addTime(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if ((argc < 2) || (!stringisnum(args[1],1)))
     {
@@ -494,7 +494,7 @@ int addTime(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int setTime(hmHandle &handle, string client, string args[], int argc)
+int setTime(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if ((argc < 2) || ((!stringisnum(args[1],0)) && (!isin("day night",args[1]))))
     {
@@ -506,7 +506,7 @@ int setTime(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int changeWeather(hmHandle &handle, string client, string args[], int argc)
+int changeWeather(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -562,7 +562,7 @@ int getGamerule(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }*/
 
-int setGamemode(hmHandle &handle, string client, string args[], int argc)
+int setGamemode(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -581,11 +581,7 @@ int setGamemode(hmHandle &handle, string client, string args[], int argc)
 	    }
     }
     else
-    {
-        hmPlayer self;
-        self.name = client;
-        targs.push_back(self);
-    }
+        targs.push_back(client);
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
         hmSendRaw("gamemode " + args[1] + " " + stripFormat(it->name));
@@ -594,7 +590,7 @@ int setGamemode(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int bringPlayer(hmHandle &handle, string client, string args[], int argc)
+int bringPlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -613,22 +609,20 @@ int bringPlayer(hmHandle &handle, string client, string args[], int argc)
     for (auto it = targs.begin(), ite = targs.end();it != ite;++it)
     {
         name = stripFormat(it->name);
-        hmSendRaw("execute as " + stripFormat(client) + " at @s run teleport " + name + " ^ ^1.66 ^2");
+        hmSendRaw("execute as " + stripFormat(client.name) + " at @s run teleport " + name + " ^ ^1.66 ^2");
         hmSendCommandFeedback(client,"Teleported " + it->name + ".");
     }
     return 0;
 }
 
-int toggleNoclip(hmHandle &handle, string client, string args[], int argc)
+int toggleNoclip(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     vector<hmPlayer> targs;
     int targn;
     if (argc < 2)
     {
         targn = 1;
-        hmPlayer temp;
-        temp.name = client;
-        targs.push_back(temp);
+        targs.push_back(client);
     }
     else
         targn = hmProcessTargets(client,args[1],targs,FILTER_NAME|FILTER_NO_SELECTOR);
@@ -665,7 +659,7 @@ int toggleNoclip(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int toggleDrought(hmHandle &handle, string client, string args[], int argc)
+int toggleDrought(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     static bool enabled = false;
     enabled = !enabled;
@@ -690,7 +684,7 @@ int timerDrought(hmHandle &handle, string args)
     return 0;
 }
 
-int toggleFlood(hmHandle &handle, string client, string args[], int argc)
+int toggleFlood(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     static bool enabled = false;
     enabled = !enabled;
@@ -715,7 +709,7 @@ int timerFlood(hmHandle &handle, string args)
     return 0;
 }
 
-int smitePlayer(hmHandle &handle, string client, string args[], int argc)
+int smitePlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -747,7 +741,7 @@ int delayedKill(hmHandle &handle, string client)
     return 1;
 }
 
-int rocketPlayer(hmHandle &handle, string client, string args[], int argc)
+int rocketPlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -780,7 +774,7 @@ int delayedExplode(hmHandle &handle, string client)
     return 1;
 }
 
-int slayPlayer(hmHandle &handle, string client, string args[], int argc)
+int slayPlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -803,7 +797,7 @@ int slayPlayer(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int explodePlayer(hmHandle &handle, string client, string args[], int argc)
+int explodePlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {

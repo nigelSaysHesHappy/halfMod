@@ -4,7 +4,7 @@
 #include "nbtmap.h"
 using namespace std;
 
-#define VERSION		"v0.2.3"
+#define VERSION		"v0.2.4"
 
 struct Trade
 {
@@ -43,8 +43,8 @@ string toggleButton(string name, int socket, string ip, string client)
 
 int cChange(hmConVar &cvar, string oldVar, string newVar);
 int cDisChange(hmConVar &cvar, string oldVar, string newVar);
-int newShopCmd(hmHandle &handle, string client, string args[], int argc);
-int restockShopCmd(hmHandle &handle, string client, string args[], int argc);
+int newShopCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc);
+int restockShopCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc);
 
 int shopGetCoords(hmHandle &handle, hmHook hook, smatch args);
 int diamondCheck(hmHandle &handle, hmHook hook, smatch args);
@@ -96,7 +96,7 @@ int cDisChange(hmConVar &cvar, string oldVar, string newVar)
     return 0;
 }
 
-int newShopCmd(hmHandle &handle, string client, string args[], int argc)
+int newShopCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     // hm_newshop <profession,career|random> [noai=false] [invulnerable=false] [name=null]
     if (argc < 2)
@@ -139,15 +139,15 @@ int newShopCmd(hmHandle &handle, string client, string args[], int argc)
     if (cost > 0)
     {
         // [04:16:59] [Server thread/INFO]: No items were found on player nigathan
-        handle.hookPattern("shop " + client + " " + to_string(cost) + " " + info,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: No items were found on player (" + client + ").?.?$",&failDiamondCheck);
+        handle.hookPattern("shop " + client.name + " " + to_string(cost) + " " + info,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: No items were found on player (" + client.name + ").?.?$",&failDiamondCheck);
         // [04:17:50] [Server thread/INFO]: Found 64 matching items on player nigathan
-        handle.hookPattern("shop " + client + " " + to_string(cost) + " " + info,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Found ([0-9]+) matching items on player (" + client + ")$",&diamondCheck);
-        hmSendRaw("clear " + client + " minecraft:diamond 0");
+        handle.hookPattern("shop " + client.name + " " + to_string(cost) + " " + info,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Found ([0-9]+) matching items on player (" + client.name + ")$",&diamondCheck);
+        hmSendRaw("clear " + client.name + " minecraft:diamond 0");
     }
     else
     {
-        handle.hookPattern("shop " + client + " " + to_string(cost) + " " + info,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client + ") has the following entity data: (\\{.*\\})$",&shopGetCoords);
-        hmSendRaw("data get entity " + client);
+        handle.hookPattern("shop " + client.name + " " + to_string(cost) + " " + info,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client.name + ") has the following entity data: (\\{.*\\})$",&shopGetCoords);
+        hmSendRaw("data get entity " + client.name);
     }
     return 0;
 }
@@ -258,10 +258,10 @@ int failChestCheck(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int restockShopCmd(hmHandle &handle, string client, string args[], int argc)
+int restockShopCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
-    handle.hookPattern("restock " + client,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client + ") has the following entity data: (\\{.*\\})$",&shopGetCoords);
-    hmSendRaw("data get entity " + client);
+    handle.hookPattern("restock " + client.name,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client.name + ") has the following entity data: (\\{.*\\})$",&shopGetCoords);
+    hmSendRaw("data get entity " + client.name);
     return 0;
 }
 

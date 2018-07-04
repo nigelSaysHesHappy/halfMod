@@ -1,6 +1,11 @@
 #!/bin/bash
 
 echo "Compiling halfMod API . . ."
+chmod +x buildapi.sh
+chmod +x buildengine.sh
+chmod +x buildshell.sh
+chmod +x plugins/compile.sh
+chmod +x extensions/compile.sh
 ./buildapi.sh
 err=$?
 if [[ $err -ne 0 ]]; then

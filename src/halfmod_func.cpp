@@ -134,7 +134,7 @@ void createDirs()
 void loadAllExtensions(hmGlobal &info)
 {
     vector<string> paths;
-    findPlugins("./halfMod/extensions/",paths);
+    info.extensions.reserve(findPlugins("./halfMod/extensions/",paths));
     for (auto it = paths.begin(), ite = paths.end();it != ite;++it)
         loadExtension(info,*it);
 }
@@ -142,7 +142,7 @@ void loadAllExtensions(hmGlobal &info)
 void loadAllPlugins(hmGlobal &info, vector<hmHandle> &plugins)
 {
     vector<string> paths;
-    findPlugins("./halfMod/plugins/",paths);
+    plugins.reserve(findPlugins("./halfMod/plugins/",paths));
     for (auto it = paths.begin(), ite = paths.end();it != ite;++it)
         loadPlugin(info,plugins,*it);
     processEvent(plugins,HM_ONPLUGINSLOADED);
@@ -214,10 +214,7 @@ int handleConnection(int &sockfd, fd_set &readfds, hmGlobal &serverInfo, vector<
             handleDisconnect(sockfd);
     }
     if (sockfd > 0)
-    {
-        processTimers(plugins);
-        return resetSocketSelect(readfds,sockfd);
-    }
+        return resetSocketSelect(plugins,readfds,sockfd);
     return 0;
 }
 
@@ -240,14 +237,16 @@ void tryConnect(hmGlobal &serverInfo, int &sockfd, hostent *server, int port)
     serverInfo.hsSocket = sockfd;
 }
 
-int resetSocketSelect(fd_set &readfds, int sockfd)
+int resetSocketSelect(vector<hmHandle> &plugins, fd_set &readfds, int sockfd)
 {
     static timeval timeout;
     FD_ZERO(&readfds);
     FD_SET(sockfd,&readfds);
     FD_SET(0,&readfds);
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 10;
+    //timeout.tv_sec = 0;
+    //timeout.tv_usec = 10;
+    timeout = processTimers(plugins);
+    //cout<<"wtf "<<timeout.tv_sec<<"."<<timeout.tv_usec<<endl;
     return select(sockfd+1,&readfds,NULL,NULL,&timeout);
 }
 
@@ -257,27 +256,27 @@ int loadPlugin(hmGlobal &info, vector<hmHandle> &plugins, const string &path)
     {
         if (it->getPath() == path)
         {
-            cerr<<"Plugin \""<<path<<"\" is already loaded."<<endl;
+            cerr<<"[HM] Plugin \""<<path<<"\" is already loaded."<<endl;
             return 3;
         }
     }
     hmHandle temp;
     if (!temp.load(path,&info))
     {
-        cerr<<"Error loading plugin \""<<path<<"\" . . .\n";
+        cerr<<"[HM] Error loading plugin \""<<path<<"\" . . .\n";
         return 1;
     }
     else
     {
         if (temp.getAPI() != API_VERSION)
         {
-            cout<<"Error plugin \""<<path<<"\" was compiled with a different version of the API ("<<temp.getAPI()<<") . . . Recompile with "<<API_VERSION<<".\n";
+            cout<<"[HM] Error plugin \""<<path<<"\" was compiled with a different version of the API ("<<temp.getAPI()<<") . . . Recompile with "<<API_VERSION<<".\n";
             return 2;
         }
         else
         {
             plugins.push_back(temp);
-            cout<<"Plugin \""<<plugins[plugins.size()-1].getInfo().name<<"\" loaded . . .\n";
+            cout<<"[HM] Plugin \""<<plugins[plugins.size()-1].getInfo().name<<"\" loaded . . .\n";
         }
     }
     return 0;
@@ -289,27 +288,27 @@ int loadExtension(hmGlobal &info, const string &path)
     {
         if (it->getPath() == path)
         {
-            cerr<<"Extension \""<<path<<"\" is already loaded."<<endl;
+            cerr<<"[HM] Extension \""<<path<<"\" is already loaded."<<endl;
             return 3;
         }
     }
     hmExtension temp;
     if (!temp.load(path,&info))
     {
-        cerr<<"Error loading extension \""<<path<<"\" . . .\n";
+        cerr<<"[HM] Error loading extension \""<<path<<"\" . . .\n";
         return 1;
     }
     else
     {
         if (temp.getAPI() != API_VERSION)
         {
-            cout<<"Error extension \""<<path<<"\" was compiled with a different version of the API ("<<temp.getAPI()<<") . . . Recompile with "<<API_VERSION<<".\n";
+            cout<<"[HM] Error extension \""<<path<<"\" was compiled with a different version of the API ("<<temp.getAPI()<<") . . . Recompile with "<<API_VERSION<<".\n";
             return 2;
         }
         else
         {
             info.extensions.push_back(temp);
-            cout<<"Extension \""<<info.extensions[info.extensions.size()-1].getInfo().name<<"\" loaded . . .\n";
+            cout<<"[HM] Extension \""<<info.extensions[info.extensions.size()-1].getInfo().name<<"\" loaded . . .\n";
         }
     }
     return 0;
@@ -333,7 +332,7 @@ int readSock(int sock, string &buffer)
     return s;
 }
 
-int findPlugins(const char *dir, vector<string> &paths)
+size_t findPlugins(const char *dir, vector<string> &paths)
 {
     DIR *wd;
     struct dirent *entry;
@@ -580,13 +579,14 @@ gamerule randomTickSpeed 4
                                                             ptrn = "(\\S+) left the game";
                                                             if (regex_match(thread,ml,ptrn))
                                                             {
-                                                                for (auto it = info.players.begin();it != info.players.end();)
+                                                                /*for (auto it = info.players.begin();it != info.players.end();)
                                                                 {
                                                                     if (stripFormat(lower(it->name)) == stripFormat(lower(ml[1].str())))
                                                                         info.players.erase(it);
                                                                     else
                                                                         ++it;
-                                                                }
+                                                                }*/
+                                                                info.players.erase(stripFormat(lower(ml[1].str())));
                                                                 if (processEvent(plugins,HM_ONPART,ml))
                                                                     return 1;
                                                             }
@@ -622,7 +622,7 @@ gamerule randomTickSpeed 4
                                                                                 string client = stripFormat(lower(ml[1].str())), msg = ml[2].str();
                                                                                 time_t cTime = time(NULL);
                                                                                 hmWritePlayerDat(client,data2str("death=%li",cTime) + "\ndeathmsg=" + msg,"death=deathmsg");
-                                                                                for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
+                                                                                /*for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
                                                                                 {
                                                                                     if (stripFormat(lower(it->name)) == client)
                                                                                     {
@@ -630,6 +630,12 @@ gamerule randomTickSpeed 4
                                                                                         it->deathmsg = msg;
                                                                                         break;
                                                                                     }
+                                                                                }*/
+                                                                                auto c = info.players.find(client);
+                                                                                if (c != info.players.end())
+                                                                                {
+                                                                                    c->second.death = cTime;
+                                                                                    c->second.deathmsg = msg;
                                                                                 }
                                                                                 if (processEvent(plugins,HM_ONDEATH,ml))
                                                                                     return 1;
@@ -716,8 +722,7 @@ int processEvent(vector<hmHandle> &plugins, int event)
     hmEvent evnt;
     for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
     {
-        evnt = it->findEvent(event);
-        if (evnt.event > 0)
+        if (it->findEvent(event,evnt))
             if ((*evnt.func)(*it))
                 return 1;
     }
@@ -729,8 +734,7 @@ int processEvent(vector<hmHandle> &plugins, int event, smatch thread)
     hmEvent evnt;
     for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
     {
-        evnt = it->findEvent(event);
-        if (evnt.event > 0)
+        if (it->findEvent(event,evnt))
             if ((*evnt.func_with)(*it,thread))
                 return 1;
     }
@@ -773,23 +777,28 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, const string &cmd, c
     if (caller == "Server")
         return 0;
     hmCommand com;
-    int flags = 0;
+    hmPlayer player;
+    player.flags = 0;
+    player.name = caller;
     if ((console) || (caller == "#SERVER"))
-        flags = FLAG_ROOT;
+        player.flags = FLAG_ROOT;
     else if (hmIsPlayerOnline(caller))
-        flags = hmGetPlayerFlags(caller);
+        player = hmGetPlayerInfo(caller);
     else// if (remote)
     {
         visible = false;
-        string client = lower(caller);
-        for (vector<hmAdmin>::iterator it = global.admins.begin(), ite = global.admins.end();it != ite;++it)
+        string client = stripFormat(lower(caller));
+        /*for (vector<hmAdmin>::iterator it = global.admins.begin(), ite = global.admins.end();it != ite;++it)
         {
             if (lower(it->client) == client)
             {
                 flags = it->flags;
                 break;
             }
-        }
+        }*/
+        auto c = global.admins.find(client);
+        if (c != global.admins.end())
+            player.flags = c->second.flags;
     }
     string *arga;
     int argc = numqtok(args," ")+1;
@@ -798,7 +807,7 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, const string &cmd, c
     for (int i = 1;i < argc;i++)
         arga[i] = getqtok(args,i," ");
     int ret = 0, internal;
-    if ((internal = isInternalCmd(cmd,flags)) > -1)
+    if ((internal = isInternalCmd(cmd,player.flags)) > -1)
     {
         if (caller != "#SERVER")
             cout<<"[HM] "<<caller<<" is issuing the command "<<cmd<<endl;
@@ -870,14 +879,13 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, const string &cmd, c
     {
         for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
         {
-            com = it->findCmd(cmd);
-            if (com.cmd != "")
+            if (it->findCmd(cmd,com))
             {
-                if ((com.flag == 0) || ((flags & com.flag) == com.flag))
+                if ((com.flag == 0) || ((player.flags & com.flag) == com.flag))
                 {
                     if (caller != "#SERVER")
                         cout<<"[HM] "<<caller<<" is issuing the command "<<cmd<<endl;
-                    ret = (*com.func)(*it,caller,arga,argc);
+                    ret = (*com.func)(*it,player,arga,argc);
                     internal = 1;
                     break;
                 }
@@ -943,7 +951,7 @@ int hashAdmins(hmGlobal &info, const string &path)
     regex comment ("#.*");
     regex white ("\\s");
     for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
-        it->flags = 0;
+        it->second.flags = 0;
     if (file.is_open())
     {
         info.admins.clear();
@@ -957,18 +965,25 @@ int hashAdmins(hmGlobal &info, const string &path)
             {
                 flags = 0;
                 flagstr = lower(deltok(line,1,"="));
-                for (int i = 0;i < flagstr.size();i++)
+                //for (int i = 0;i < flagstr.size();i++)
+                for (auto i = flagstr.begin(), j = flagstr.end();i < j;++i)
                 {
-                    if (!isalpha(flagstr[i]))
+                    //if (!isalpha(flagstr[i]))
+                    if (!isalpha(*i))
                         continue;
-                    flags |= FLAGS[flagstr[i]-97];
+                    //flags |= FLAGS[flagstr[i]-97];
+                    flags |= FLAGS[*i-97];
                 }
-                info.admins.push_back({ gettok(line,1,"="), flags });
-                for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
+                //info.admins.push_back({ gettok(line,1,"="), flags });
+                string client = lower(gettok(line,1,"="));
+                info.admins.emplace(client,hmAdmin({client,flags}));
+                /*for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
                 {
                     if (lower(gettok(line,1,"=")) == stripFormat(lower(it->name)))
                         it->flags = flags;
-                }
+                }*/
+                if (hmIsPlayerOnline(client))
+                    info.players.at(client).flags = flags;
             }
         }
         file.close();
@@ -1011,8 +1026,8 @@ int hashConsoleFilters(vector<hmConsoleFilter> &filters, vector<hmHandle> &plugi
             temp.filter = deltok(line,1," ");
             filters.push_back(temp);
         }
-        processEvent(plugins,HM_ONREHASHFILTER);
         file.close();
+        processEvent(plugins,HM_ONREHASHFILTER);
         return 0;
     }
     return 1;
@@ -1020,14 +1035,20 @@ int hashConsoleFilters(vector<hmConsoleFilter> &filters, vector<hmHandle> &plugi
 
 void loadPlayerData(hmGlobal &info, const string &name)
 {
-    for (auto it = info.players.begin();it != info.players.end();)
+    /*for (auto it = info.players.begin();it != info.players.end();)
     {
         if (stripFormat(lower(it->name)) == stripFormat(lower(name)))
             it = info.players.erase(it);
         else
             ++it;
     }
-    info.players.push_back(hmGetPlayerData(name));
+    info.players.push_back(hmGetPlayerData(name));*/
+    //auto c = info.players.find(name);
+    //if (c != c.
+    hmPlayer data = hmGetPlayerData(name);
+    auto c = info.players.emplace(stripFormat(lower(name)),data);
+    if (!c.second)
+        c.first->second = data;
 }
 
 int internalHM(hmGlobal &global, vector<hmHandle> &plugins, const string &caller, string args[], int argc)
@@ -1370,12 +1391,12 @@ int internalInfo(vector<hmHandle> &plugins, const string &caller, string args[],
             {
                 if (criteria.size() > 0)
                 {
-                    if ((!isin(com->cmd,criteria)) && (!isin(com->desc,criteria)))
+                    if ((!isin(com->second.cmd,criteria)) && (!isin(com->second.desc,criteria)))
                         continue;
                 }
-                if ((com->flag == 0) || ((flags & com->flag) > 0))
+                if ((com->second.flag == 0) || ((flags & com->second.flag) > 0))
                 {
-                    entry = com->cmd + " - " + com->desc;
+                    entry = com->second.cmd + " - " + com->second.desc;
                     list.push_back(entry);
                 }
             }
@@ -1441,10 +1462,10 @@ int internalCvarInfo(hmGlobal &global, const string &caller, string args[], int 
     {
         if (criteria.size() > 0)
         {
-            if ((!isin(it->getName(),criteria)) && (!isin(it->getDesc(),criteria)))
+            if ((!isin(it->second.getName(),criteria)) && (!isin(it->second.getDesc(),criteria)))
                 continue;
         }
-        entry = it->getName() + " (Default: " + it->getDefault() + ") - " + it->getDesc();
+        entry = it->second.getName() + " (Default: " + it->second.getDefault() + ") - " + it->second.getDesc();
         list.push_back(entry);
     }
     if (list.size() < 1)
@@ -1490,8 +1511,8 @@ int internalCvarReset(hmGlobal &global, const string &caller, string args[], int
         hmReplyToClient(caller,"Usage: " + args[0] + " <cvar> - Reset a cvar to default.");
         return 8;
     }
-    bool found = false;
-    for (auto it = global.conVars.begin(), ite = global.conVars.end();it != ite;++it)
+    //bool found = false;
+    /*for (auto it = global.conVars.begin(), ite = global.conVars.end();it != ite;++it)
     {
         if (args[1] == it->getName())
         {
@@ -1505,8 +1526,19 @@ int internalCvarReset(hmGlobal &global, const string &caller, string args[], int
             }
             break;
         }
+    }*/
+    auto c = global.conVars.find(args[1]);
+    if (c != global.conVars.end())
+    {
+        if ((c->second.flags & FCVAR_READONLY))
+            hmReplyToClient(caller,c->second.getName() + " is read-only.");
+        else
+        {
+            c->second.reset();
+            hmReplyToClient(caller,c->second.getName() + " has been reset to " + c->second.getAsString());
+        }
     }
-    if (!found)
+    else
         hmReplyToClient(caller,"Unknown ConVar: " + args[1]);
     return 0;
 }
@@ -1559,7 +1591,7 @@ int internalCvar(hmGlobal &global, const string &caller, string args[], int argc
         hmReplyToClient(caller,"Usage: " + args[0] + " <convar> [value]");
         return 1;
     }
-    bool found = false;
+    /*bool found = false;
     for (auto it = global.conVars.begin(), ite = global.conVars.end();it != ite;++it)
     {
         if (args[1] == it->getName())
@@ -1580,15 +1612,34 @@ int internalCvar(hmGlobal &global, const string &caller, string args[], int argc
             break;
         }
     }
-    if (!found)
+    if (!found)*/
+    auto it = global.conVars.find(args[1]);
+    if (it != global.conVars.end())
+    {
+        if (argc < 3)
+            hmReplyToClient(caller,it->second.getName() + " = " + it->second.getAsString());
+        else
+        {
+            if ((it->second.flags & FCVAR_READONLY))
+                hmReplyToClient(caller,it->second.getName() + " is read-only.");
+            else
+            {
+                it->second.setString(args[2]);
+                hmReplyToClient(caller,it->second.getName() + " set to " + it->second.getAsString());
+            }
+        }
+    }
+    else
         hmReplyToClient(caller,"Unknown ConVar: " + args[1]);
     return 0;
 }
 
-void processTimers(vector<hmHandle> &plugins)
+timeval processTimers(vector<hmHandle> &plugins)
 {
     chrono::high_resolution_clock::time_point curTime = chrono::high_resolution_clock::now();
-    chrono::nanoseconds interval;
+    timeval ret;
+    ret.tv_sec = 60;
+    ret.tv_usec = 0;
     int n;
     size_t cap;
     for (vector<hmExtension>::iterator ita = recallGlobal(NULL)->extensions.begin(), ite = recallGlobal(NULL)->extensions.end();ita != ite;++ita)
@@ -1597,31 +1648,41 @@ void processTimers(vector<hmHandle> &plugins)
         cap = ita->timers.capacity();
         for (vector<hmExtTimer>::iterator it = ita->timers.begin();it != ita->timers.end();)
         {
+            chrono::high_resolution_clock::time_point testTime = curTime;
+            timeval tv;
             if (ita->invalidTimers)
                 ita->invalidTimers = false;
             switch (it->type)
             {
                 case MILLISECONDS:
                 {
-                    interval = (chrono::nanoseconds)(it->interval * 1000000);
+                    tv.tv_sec = it->interval/1000;
+                    tv.tv_usec = (it->interval%1000)*1000;
+                    testTime -= (chrono::milliseconds)(it->interval);
                     break;
                 }
                 case MICROSECONDS:
                 {
-                    interval = (chrono::nanoseconds)(it->interval * 1000);
+                    tv.tv_sec = it->interval/1000000;
+                    tv.tv_usec = (it->interval%1000000);
+                    testTime -= (chrono::microseconds)(it->interval);
                     break;
                 }
                 case NANOSECONDS:
                 {
-                    interval = (chrono::nanoseconds)(it->interval);
+                    tv.tv_sec = it->interval/1000000000;
+                    tv.tv_usec = (it->interval%1000000000)/1000;
+                    testTime -= (chrono::nanoseconds)(it->interval);
                     break;
                 }
                 default:
                 {
-                    interval = (chrono::nanoseconds)(it->interval * 1000000000);
+                    tv.tv_sec = it->interval;
+                    tv.tv_usec = 0;
+                    testTime -= (chrono::seconds)(it->interval);
                 }
             }
-            if (it->last+interval <= curTime)
+            if (it->last <= testTime)
             {
                 if ((*it->func)(*ita,it->args))
                 {
@@ -1632,14 +1693,26 @@ void processTimers(vector<hmHandle> &plugins)
                 }
                 else
                 {
+                    if ((tv.tv_sec < ret.tv_sec) || ((tv.tv_sec == ret.tv_sec) && (tv.tv_usec < ret.tv_usec)))
+                        ret = tv;
                     if ((ita->invalidTimers) && (cap != ita->timers.capacity()))
                         it = ita->timers.begin()+n;
                     it->last = curTime;
                     it++;
+                    n++;
                 }
             }
-            else    it++;
-            n++;
+            else
+            {
+                n++;
+                chrono::nanoseconds ns = it->last-testTime;
+                tv.tv_sec = chrono::duration_cast<chrono::seconds>(ns).count();
+                tv.tv_usec = chrono::duration_cast<chrono::microseconds>(ns).count()%1000000;
+                if ((tv.tv_sec < ret.tv_sec) || ((tv.tv_sec == ret.tv_sec) && (tv.tv_usec < ret.tv_usec)))
+                    ret = tv;
+                it++;
+            }
+            //n++;
         }
     }
     for (vector<hmHandle>::iterator ita = plugins.begin(), ite = plugins.end();ita != ite;++ita)
@@ -1648,31 +1721,41 @@ void processTimers(vector<hmHandle> &plugins)
         cap = ita->timers.capacity();
         for (vector<hmTimer>::iterator it = ita->timers.begin();it != ita->timers.end();)
         {
+            chrono::high_resolution_clock::time_point testTime = curTime;
+            timeval tv;
             if (ita->invalidTimers)
                 ita->invalidTimers = false;
             switch (it->type)
             {
                 case MILLISECONDS:
                 {
-                    interval = (chrono::nanoseconds)(it->interval * 1000000);
+                    tv.tv_sec = it->interval/1000;
+                    tv.tv_usec = (it->interval%1000)*1000;
+                    testTime -= (chrono::milliseconds)(it->interval);
                     break;
                 }
                 case MICROSECONDS:
                 {
-                    interval = (chrono::nanoseconds)(it->interval * 1000);
+                    tv.tv_sec = it->interval/1000000;
+                    tv.tv_usec = (it->interval%1000000);
+                    testTime -= (chrono::microseconds)(it->interval);
                     break;
                 }
                 case NANOSECONDS:
                 {
-                    interval = (chrono::nanoseconds)(it->interval);
+                    tv.tv_sec = it->interval/1000000000;
+                    tv.tv_usec = (it->interval%1000000000)/1000;
+                    testTime -= (chrono::nanoseconds)(it->interval);
                     break;
                 }
                 default:
                 {
-                    interval = (chrono::nanoseconds)(it->interval * 1000000000);
+                    tv.tv_sec = it->interval;
+                    tv.tv_usec = 0;
+                    testTime -= (chrono::seconds)(it->interval);
                 }
             }
-            if (it->last+interval <= curTime)
+            if (it->last <= testTime)
             {
                 if ((*it->func)(*ita,it->args))
                 {
@@ -1683,15 +1766,28 @@ void processTimers(vector<hmHandle> &plugins)
                 }
                 else
                 {
+                    if ((tv.tv_sec < ret.tv_sec) || ((tv.tv_sec == ret.tv_sec) && (tv.tv_usec < ret.tv_usec)))
+                        ret = tv;
                     if ((ita->invalidTimers) && (cap != ita->timers.capacity()))
                         it = ita->timers.begin()+n;
                     it->last = curTime;
                     it++;
+                    n++;
                 }
             }
-            else    it++;
-            n++;
+            else
+            {
+                n++;
+                chrono::nanoseconds ns = it->last-testTime;
+                tv.tv_sec = chrono::duration_cast<chrono::seconds>(ns).count();
+                tv.tv_usec = chrono::duration_cast<chrono::microseconds>(ns).count()%1000000;
+                if ((tv.tv_sec < ret.tv_sec) || ((tv.tv_sec == ret.tv_sec) && (tv.tv_usec < ret.tv_usec)))
+                    ret = tv;
+                it++;
+            }
+            //n++;
         }
     }
+    return ret;
 }
 

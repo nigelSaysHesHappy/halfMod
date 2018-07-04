@@ -2,7 +2,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.3"
+#define VERSION "v0.1.4"
 
 class voteInfo
 {
@@ -64,38 +64,29 @@ int onPlayerDisconnect(hmHandle &handle, smatch args)
         hmGlobal *global;
         global = recallGlobal(global);
         int can = -1;
-        for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
+        hmPlayer *it = hmGetPlayerPtr(name);
+        string lines = it->custom;
+        for (string line;(line = gettok(lines,1,"\n")) != "";lines = deltok(lines,1,"\n"))
         {
-            if (stripFormat(lower(it->name)) == client)
+            if (gettok(line,1,"=") == "vote")
             {
-                string lines = it->custom;
-                for (string line;(line = gettok(lines,1,"\n")) != "";lines = deltok(lines,1,"\n"))
+                can = stoi(gettok(line,2,"="));
+                vote.votes[can]--;
+                for (int i = 0;i < vote.voteCount;i++)
                 {
-                    if (gettok(line,1,"=") == "vote")
+                    if (vote.voters[i] == client)
                     {
-                        can = stoi(gettok(line,2,"="));
-                        vote.votes[can]--;
-                        bool found = false;
-                        for (int i = 0;i < vote.voteCount;i++)
+                        if (i+1 != vote.voteCount)
+                            vote.voters[i] = vote.voters[i+1];
+                        else
                         {
-                            if (vote.voters[i] == client)
-                                found = true;
-                            if (found)
-                            {
-                                if (i+1 != vote.voteCount)
-                                    vote.voters[i] = vote.voters[i+1];
-                                else
-                                {
-                                    vote.voters[i].clear();
-                                    break;
-                                }
-                            }
+                            vote.voters[i].clear();
+                            break;
                         }
-                        vote.voteCount--;
-                        hmSendMessageAll(name + "'s vote has been thrown out!");
-                        break;
                     }
                 }
+                vote.voteCount--;
+                hmSendMessageAll(name + "'s vote has been thrown out!");
                 break;
             }
         }
@@ -103,9 +94,9 @@ int onPlayerDisconnect(hmHandle &handle, smatch args)
     return 0;
 }
 
-int voteCmd(hmHandle &handle, string client, string args[], int argc)
+int voteCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
-    if (client == "#SERVER")
+    if ((client.name == "#SERVER") || (!hmIsPlayerOnline(client.name)))
     {
         hmReplyToClient(client,"Only online players are allowed to vote!");
         return 1;
@@ -124,33 +115,31 @@ int voteCmd(hmHandle &handle, string client, string args[], int argc)
         return 1;
     }
     // check candidate exists
+    if (!stringisnum(args[1]))
+    {
+        hmReplyToClient(client,"Invalid candidate (" + args[1] + ")");
+        return 1;
+    }
     int can = stoi(args[1])-1;
     if ((can < 0) || (can >= vote.quantity))
     {
         hmReplyToClient(client,"Invalid candidate (" + args[1] + ")");
         return 1;
     }
-    client = stripFormat(lower(client));
+    string stripClient = stripFormat(lower(client.name));
     for (int i = 0;i < vote.voteCount;i++)
     {
-        if (vote.voters[i] == client)
+        if (vote.voters[i] == stripClient)
         {
             hmReplyToClient(client,"You have already voted!");
             return 1;
         }
     }
-    hmGlobal *global;
-    global = recallGlobal(global);
-    for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
-    {
-        if (stripFormat(lower(it->name)) == client)
-        {
-            it->custom = appendtok(it->custom,"vote=" + to_string(can),"\n");
-            break;
-        }
-    }
+    hmGlobal *global = recallGlobal(NULL);
+    hmPlayer *it = hmGetPlayerPtr(client.name);
+    it->custom = appendtok(it->custom,"vote=" + to_string(can),"\n");
     vote.votes[can]++;
-    vote.voters[vote.voteCount++] = client;
+    vote.voters[vote.voteCount++] = stripClient;
     //vote.voteCount++;
     if (vote.voteCount >= global->players.size())
         handle.triggerTimer("voteTimer");
@@ -161,7 +150,7 @@ int voteCmd(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int createVoteCmd(hmHandle &handle, string client, string args[], int argc)
+int createVoteCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -195,7 +184,7 @@ int createVoteCmd(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int runVoteCmd(hmHandle &handle, string client, string args[], int argc)
+int runVoteCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 3)
     {
@@ -236,11 +225,11 @@ int tallyFunc(hmHandle &handle, string args)
     //hmSendMessageAll("The polls have closed! Tallying up the votes.");
     for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
     {
-        for (int i = 1, j = numtok(it->custom,"\n");i <= j;i++)
+        for (int i = 1, j = numtok(it->second.custom,"\n");i <= j;i++)
         {
-            if (gettok(gettok(it->custom,i,"\n"),1,"=") == "vote")
+            if (gettok(gettok(it->second.custom,i,"\n"),1,"=") == "vote")
             {
-                it->custom = deltok(it->custom,i,"\n");
+                it->second.custom = deltok(it->second.custom,i,"\n");
                 break;
             }
         }

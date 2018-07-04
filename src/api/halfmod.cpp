@@ -13,8 +13,9 @@
 #include "halfmod.h"
 using namespace std;
 
-int mcVerInt(const string &version)
+int mcVerInt(string version)
 {
+    version = gettok(version,1,"-");
     static string oldVer = version;
     static int verInt = 0;
     if ((oldVer != version) || (verInt == 0))
@@ -61,10 +62,13 @@ void hmHandle::unload()
 {
     if (loaded)
     {
-        void (*end)(hmHandle&);
+        auto end = events.find(HM_ONPLUGINEND);
+        if (end != events.end())
+            (*end->second.func)(*this);
+        /*void (*end)(hmHandle&);
         *(void **) (&end) = dlsym(module, HM_ONPLUGINEND_FUNC);
         if (dlerror() == NULL)
-            (*end)(*this);
+            (*end)(*this);*/
         hmGlobal *global = recallGlobal(NULL);
         for (auto it = conVarNames.begin(), ite = conVarNames.end();it != ite;++it)
         {
@@ -105,6 +109,7 @@ bool hmHandle::load(const string &pluginPath, hmGlobal *global)
                 pluginName = deltok(deltok(deltok(deltok(modulePath,1,"/"),1,"/"),1,"/"),-1,".");
                 global->pluginList.push_back({modulePath,pluginName,info.version});
                 loaded = true;
+                hookEvent(HM_ONPLUGINEND,HM_ONPLUGINEND_FUNC,false);
                 hookEvent(HM_ONCONNECT,HM_ONCONNECT_FUNC);
                 hookEvent(HM_ONAUTH,HM_ONAUTH_FUNC);
                 hookEvent(HM_ONJOIN,HM_ONJOIN_FUNC);
@@ -176,7 +181,8 @@ int hmHandle::hookEvent(int event, const string &function, bool withSmatch)
     if (dlerror() == NULL)
     {
         tmpEvent.event = event;
-        events.push_back(tmpEvent);
+        //events.push_back(tmpEvent);
+        events.emplace(event,tmpEvent);
         return events.size();
     }
     return -1;
@@ -187,7 +193,8 @@ int hmHandle::hookEvent(int event, int (*func)(hmHandle&))
     hmEvent tmpEvent;
     tmpEvent.func = func;
     tmpEvent.event = event;
-    events.push_back(tmpEvent);
+    //events.push_back(tmpEvent);
+    events.emplace(event,tmpEvent);
     return events.size();
 }
 
@@ -196,7 +203,8 @@ int hmHandle::hookEvent(int event, int (*func_with)(hmHandle&,std::smatch))
     hmEvent tmpEvent;
     tmpEvent.func_with = func_with;
     tmpEvent.event = event;
-    events.push_back(tmpEvent);
+    //events.push_back(tmpEvent);
+    events.emplace(event,tmpEvent);
     return events.size();
 }
 
@@ -209,20 +217,22 @@ int hmHandle::regAdminCmd(const string &command, const string &function, int fla
         tmpCommand.cmd = command;
         tmpCommand.flag = flags;
         tmpCommand.desc = description;
-        cmds.push_back(tmpCommand);
+        //cmds.push_back(tmpCommand);
+        cmds.emplace(command,tmpCommand);
         return cmds.size();
     }
     return -1;
 }
 
-int hmHandle::regAdminCmd(const string &command, int (*func)(hmHandle&,std::string,std::string[],int), int flags, const string &description)
+int hmHandle::regAdminCmd(const string &command, int (*func)(hmHandle&,const hmPlayer&,std::string[],int), int flags, const string &description)
 {
     hmCommand tmpCommand;
     tmpCommand.func = func;
     tmpCommand.cmd = command;
     tmpCommand.flag = flags;
     tmpCommand.desc = description;
-    cmds.push_back(tmpCommand);
+    //cmds.push_back(tmpCommand);
+    cmds.emplace(command,tmpCommand);
     return cmds.size();
 }
 
@@ -235,32 +245,35 @@ int hmHandle::regConsoleCmd(const string &command, const string &function, const
         tmpCommand.cmd = command;
         tmpCommand.flag = 0;
         tmpCommand.desc = description;
-        cmds.push_back(tmpCommand);
+        //cmds.push_back(tmpCommand);
+        cmds.emplace(command,tmpCommand);
         return cmds.size();
     }
     return -1;
 }
 
-int hmHandle::regConsoleCmd(const string &command, int (*func)(hmHandle&,std::string,std::string[],int), const string &description)
+int hmHandle::regConsoleCmd(const string &command, int (*func)(hmHandle&,const hmPlayer&,std::string[],int), const string &description)
 {
     hmCommand tmpCommand;
     tmpCommand.func = func;
     tmpCommand.cmd = command;
     tmpCommand.flag = 0;
     tmpCommand.desc = description;
-    cmds.push_back(tmpCommand);
+    //cmds.push_back(tmpCommand);
+    cmds.emplace(command,tmpCommand);
     return cmds.size();
 }
 
 int hmHandle::unregCmd(const string &command)
 {
-    for (auto it = cmds.begin();it != cmds.end();)
+    /*for (auto it = cmds.begin();it != cmds.end();)
     {
         if (it->cmd == command)
             it = cmds.erase(it);
         else
             ++it;
-    }
+    }*/
+    cmds.erase(command);
     return cmds.size();
 }
 
@@ -302,28 +315,42 @@ int hmHandle::unhookPattern(const string &name)
     return hooks.size();
 }
 
-hmCommand hmHandle::findCmd(const string &command)
+bool hmHandle::findCmd(const string &command, hmCommand &cmd)
 {
-    for (auto it = cmds.begin(), ite = cmds.end();it != ite;++it)
-        if (it->cmd == command)
-            return *it;
-    return hmCommand();
+    auto c = cmds.find(command);
+    if (c != cmds.end())
+    {
+        cmd = c->second;
+        return true;
+    }
+    return false;
 }
 
-hmHook hmHandle::findHook(const string &name)
+bool hmHandle::findHook(const string &name, hmHook &hook)
 {
     for (auto it = hooks.begin(), ite = hooks.end();it != ite;++it)
+    {
         if (it->name == name)
-            return *it;
-    return hmHook();
+        {
+            hook = *it;
+            return true;
+        }
+    }
+    return false;
 }
 
-hmEvent hmHandle::findEvent(int event)
+bool hmHandle::findEvent(int event, hmEvent &evnt)
 {
-    for (auto it = events.begin(), ite = events.end();it != ite;++it)
+    /*for (auto it = events.begin(), ite = events.end();it != ite;++it)
         if (it->event == event)
-            return *it;
-    return hmEvent();
+            return *it;*/
+    auto c = events.find(event);
+    if (c != events.end())
+    {
+        evnt = c->second;
+        return true;
+    }
+    return false;
 }
 
 string hmHandle::getPath()
@@ -415,12 +442,17 @@ int hmHandle::triggerTimer(const string &name)
     return count;
 }
 
-hmTimer hmHandle::findTimer(const string &name)
+bool hmHandle::findTimer(const string &name, hmTimer &timer)
 {
     for (vector<hmTimer>::iterator it = timers.begin(), ite = timers.end();it != ite;++it)
+    {
         if (it->name == name)
-            return *it;
-    return hmTimer();
+        {
+            timer = *it;
+            return true;
+        }
+    }
+    return false;
 }
 
 int hmExtension::createTimer(const string &name, long interval, const string &function, const string &args, short type)
@@ -507,12 +539,17 @@ int hmExtension::triggerTimer(const string &name)
     return count;
 }
 
-hmExtTimer hmExtension::findTimer(const string &name)
+bool hmExtension::findTimer(const string &name, hmExtTimer &timer)
 {
     for (vector<hmExtTimer>::iterator it = timers.begin(), ite = timers.end();it != ite;++it)
+    {
         if (it->name == name)
-            return *it;
-    return hmExtTimer();
+        {
+            timer = *it;
+            return true;
+        }
+    }
+    return false;
 }
 
 string hmHandle::getPlugin()
@@ -774,9 +811,11 @@ hmConVar* hmHandle::createConVar(const string &name, const string &defaultValue,
     if (exists == nullptr)
     {
         hmConVar temp(name,defaultValue,description,flags,hasMin,min,hasMax,max);
-        global->conVars.push_back(temp);
+        //global->conVars.push_back(temp);
+        global->conVars.emplace(name,temp);
         conVarNames.push_back(name);
-        return &global->conVars.back();
+        //return &global->conVars.back();
+        return hmFindConVar(name);
     }
     else
         return exists;
@@ -813,9 +852,11 @@ hmConVar* hmExtension::createConVar(const string &name, const string &defaultVal
     if (exists == nullptr)
     {
         hmConVar temp(name,defaultValue,description,flags,hasMin,min,hasMax,max);
-        global->conVars.push_back(temp);
+        //global->conVars.push_back(temp);
+        global->conVars.emplace(name,temp);
         conVarNames.push_back(name);
-        return &global->conVars.back();
+        //return &global->conVars.back();
+        return hmFindConVar(name);
     }
     else
         return exists;
@@ -1063,6 +1104,11 @@ void hmReplyToClient(const string &client, const string &message)
     }
 }
 
+void hmReplyToClient(const hmPlayer &client, const string &message)
+{
+    hmReplyToClient(client.name,message);
+}
+
 void hmSendCommandFeedback(const string &client, const string &message)
 {
     hmGlobal *global = recallGlobal(NULL);
@@ -1081,10 +1127,10 @@ void hmSendCommandFeedback(const string &client, const string &message)
         string strippedClient = stripFormat(lower(client)), strippedTarget;
         for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
         {
-            strippedTarget = stripFormat(lower(it->name));
+            strippedTarget = stripFormat(lower(it->second.name));
             if (strippedTarget == strippedClient)
                 hmSendRaw(com + strippedClient + pre + message + suf,false);
-            else if (it->flags & FLAG_ADMIN)
+            else if (it->second.flags & FLAG_ADMIN)
                 hmSendRaw(com + strippedTarget + pre + client + ": " + message + suf,false);
             else
                 hmSendRaw(com + strippedTarget + pre + "ADMIN: " + message + suf,false);
@@ -1092,6 +1138,11 @@ void hmSendCommandFeedback(const string &client, const string &message)
     }
     else
         hmOutDebug("Error: No connection to the halfShell server . . .");
+}
+
+void hmSendCommandFeedback(const hmPlayer &client, const string &message)
+{
+    hmSendCommandFeedback(client.name,message);
 }
 
 void hmSendMessageAll(const string &message)
@@ -1109,9 +1160,12 @@ bool hmIsPlayerOnline(string client)
 {
     client = stripFormat(lower(client));
     hmGlobal *global = recallGlobal(NULL);
-    for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
+    /*for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
         if (stripFormat(lower(it->name)) == client)
-            return true;
+            return true;*/
+    auto c = global->players.find(client);
+    if (c != global->players.end())
+        return true;
     return false;
 }
 
@@ -1119,37 +1173,57 @@ hmPlayer hmGetPlayerInfo(string client)
 {
     client = stripFormat(lower(client));
     hmGlobal *global = recallGlobal(NULL);
-    for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
+    /*for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
         if (stripFormat(lower(it->name)) == client)
-            return *it;
+            return *it;*/
+    auto c = global->players.find(client);
+    if (c != global->players.end())
+        return c->second;
     return hmPlayer();
 }
 
-vector<hmPlayer>::iterator hmGetPlayerIterator(string client)
+unordered_map<std::string,hmPlayer>::iterator hmGetPlayerIterator(string client)
 {
     client = stripFormat(lower(client));
     hmGlobal *global = recallGlobal(NULL);
-    vector<hmPlayer>::iterator ite = global->players.end();
+    /*vector<hmPlayer>::iterator ite = global->players.end();
     for (vector<hmPlayer>::iterator it = global->players.begin();it != ite;++it)
         if (stripFormat(lower(it->name)) == client)
             return it;
-    return ite;
+    return ite;*/
+    unordered_map<std::string,hmPlayer>::iterator c = global->players.find(client);
+    return c;
+}
+
+hmPlayer* hmGetPlayerPtr(string client)
+{
+    client = stripFormat(lower(client));
+    hmGlobal *global = recallGlobal(NULL);
+    /*vector<hmPlayer>::iterator ite = global->players.end();
+    for (vector<hmPlayer>::iterator it = global->players.begin();it != ite;++it)
+        if (stripFormat(lower(it->name)) == client)
+            return it;
+    return ite;*/
+    unordered_map<std::string,hmPlayer>::iterator c = global->players.find(client);
+    if (c != global->players.end())
+        return &c->second;
+    return nullptr;
 }
 
 string hmGetPlayerUUID(string client)
 {
-    return hmGetPlayerInfo(stripFormat(lower(client))).uuid;
+    return hmGetPlayerPtr(stripFormat(lower(client)))->uuid;
 }
 string hmGetPlayerIP(string client)
 {
-    return hmGetPlayerInfo(stripFormat(lower(client))).ip;
+    return hmGetPlayerPtr(stripFormat(lower(client)))->ip;
 }
 
 int hmGetPlayerFlags(string client)
 {
     if (client == "#SERVER")
         return FLAG_ROOT;
-    return hmGetPlayerInfo(stripFormat(lower(client))).flags;
+    return hmGetPlayerPtr(stripFormat(lower(client)))->flags;
 }
 
 void hmOutQuiet(const string &text)
@@ -1185,14 +1259,17 @@ hmPlayer hmGetPlayerData(string client)
     string line;
     hmPlayer temp = { client, 0, "", "", 0, 0, "", 0, "", "" };
     client = stripFormat(lower(client));
-    for (vector<hmAdmin>::iterator it = global->admins.begin(), ite = global->admins.end();it != ite;++it)
+    /*for (vector<hmAdmin>::iterator it = global->admins.begin(), ite = global->admins.end();it != ite;++it)
     {
         if (lower(it->client) == client)
         {
             temp.flags = it->flags;
             break;
         }
-    }
+    }*/
+    auto c = global->admins.find(client);
+    if (c != global->admins.end())
+        temp.flags = c->second.flags;
     ifstream file ("./halfMod/userdata/" + client + ".dat");
     if (file.is_open())
     {
@@ -1305,7 +1382,10 @@ int hmProcessTargets(string client, string target, vector<hmPlayer> &targList, i
                     c = 6;
                 else
                 {
-                    targList.push_back(global->players[rand() % int(global->players.size())]);
+                    //targList.push_back(global->players[rand() % int(global->players.size())]);
+                    auto it = global->players.begin();
+                    for (int r = rand() % int(global->players.size());r;--r,++it);
+                    targList.push_back(it->second);
                     return 1;
                 }
             }
@@ -1321,59 +1401,65 @@ int hmProcessTargets(string client, string target, vector<hmPlayer> &targList, i
             flags |= FLAGS[*it-97];
     }
     vector<hmPlayer> temp;
-    for (vector<hmPlayer>::iterator it = global->players.begin(), ite = global->players.end();it != ite;++it)
+    //for (vector<hmPlayer>::iterator it = global->players.begin(), ite = global->players.end();it != ite;++it)
+    for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
     {
-        if ((filter & FILTER_UUID) && (it->uuid == target))
-            targList.push_back(*it);
-        else if ((filter & FILTER_IP) && (it->ip == target))
-            targList.push_back(*it);
+        if ((filter & FILTER_UUID) && (it->second.uuid == target))
+            targList.push_back(it->second);
+        else if ((filter & FILTER_IP) && (it->second.ip == target))
+            targList.push_back(it->second);
         else switch (c)
         {
             case 1:
             {
-                if (stripFormat(lower(it->name)) == client)
-                    targList.push_back(*it);
+                if (it->first == client)
+                    targList.push_back(it->second);
                 break;
             }
             case 2:
             {
-                if (stripFormat(lower(it->name)) != client)
-                    targList.push_back(*it);
+                if (it->first != client)
+                    targList.push_back(it->second);
                 break;
             }
             case 3:
             {
-                targList.push_back(*it);
+                targList.push_back(it->second);
                 break;
             }
             case 4:
             {
-                if (it->flags & flags)
-                    targList.push_back(*it);
+                if (it->second.flags & flags)
+                    targList.push_back(it->second);
                 break;
             }
             case 5:
             {
-                if ((it->flags & flags) == 0)
-                    targList.push_back(*it);
+                if ((it->second.flags & flags) == 0)
+                    targList.push_back(it->second);
                 break;
             }
             case 6:
             {
-                if (stripFormat(lower(it->name)) != client)
-                    temp.push_back(*it);
+                if (it->first != client)
+                    temp.push_back(it->second);
                 break;
             }
             default:
             {
-                if (isin(stripFormat(lower(it->name)),target))
-                    targList.push_back(*it);
+                if (isin(it->first,target))
+                    targList.push_back(it->second);
             }
         }
     }
     if ((c == 6) && (temp.size() > 0))
         targList.push_back(temp[randint(0,9999999) % int(temp.size())]);
     return targList.size();
+}
+
+int hmProcessTargets(const hmPlayer &client, const string &target, vector<hmPlayer> &targList, int filter)
+{
+    return hmProcessTargets(client.name,target,targList,filter);
 }
 
 int hmProcessTargetsPtr(string client, string target, vector<hmPlayer*> &targList, int filter)
@@ -1413,7 +1499,10 @@ int hmProcessTargetsPtr(string client, string target, vector<hmPlayer*> &targLis
                     c = 6;
                 else
                 {
-                    targList.push_back(&global->players[rand() % int(global->players.size())]);
+                    //targList.push_back(&global->players[rand() % int(global->players.size())]);
+                    auto it = global->players.begin();
+                    for (int r = rand() % int(global->players.size());r;--r,++it);
+                    targList.push_back(&it->second);
                     return 1;
                 }
             }
@@ -1429,59 +1518,65 @@ int hmProcessTargetsPtr(string client, string target, vector<hmPlayer*> &targLis
             flags |= FLAGS[*it-97];
     }
     vector<hmPlayer*> temp;
-    for (vector<hmPlayer>::iterator it = global->players.begin(), ite = global->players.end();it != ite;++it)
+    //for (vector<hmPlayer>::iterator it = global->players.begin(), ite = global->players.end();it != ite;++it)
+    for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
     {
-        if ((filter & FILTER_UUID) && (it->uuid == target))
-            targList.push_back(&*it);
-        else if ((filter & FILTER_IP) && (it->ip == target))
-            targList.push_back(&*it);
+        if ((filter & FILTER_UUID) && (it->second.uuid == target))
+            targList.push_back(&it->second);
+        else if ((filter & FILTER_IP) && (it->second.ip == target))
+            targList.push_back(&it->second);
         else switch (c)
         {
             case 1:
             {
-                if (stripFormat(lower(it->name)) == client)
-                    targList.push_back(&*it);
+                if (it->first == client)
+                    targList.push_back(&it->second);
                 break;
             }
             case 2:
             {
-                if (stripFormat(lower(it->name)) != client)
-                    targList.push_back(&*it);
+                if (it->first != client)
+                    targList.push_back(&it->second);
                 break;
             }
             case 3:
             {
-                targList.push_back(&*it);
+                targList.push_back(&it->second);
                 break;
             }
             case 4:
             {
-                if (it->flags & flags)
-                    targList.push_back(&*it);
+                if (it->second.flags & flags)
+                    targList.push_back(&it->second);
                 break;
             }
             case 5:
             {
-                if ((it->flags & flags) == 0)
-                    targList.push_back(&*it);
+                if ((it->second.flags & flags) == 0)
+                    targList.push_back(&it->second);
                 break;
             }
             case 6:
             {
-                if (stripFormat(lower(it->name)) != client)
-                    temp.push_back(&*it);
+                if (it->first != client)
+                    temp.push_back(&it->second);
                 break;
             }
             default:
             {
-                if (isin(stripFormat(lower(it->name)),target))
-                    targList.push_back(&*it);
+                if (isin(it->first,target))
+                    targList.push_back(&it->second);
             }
         }
     }
     if ((c == 6) && (temp.size() > 0))
         targList.push_back(temp[randint(0,9999999) % int(temp.size())]);
     return targList.size();
+}
+
+int hmProcessTargetsPtr(const hmPlayer &client, const string &target, vector<hmPlayer*> &targList, int filter)
+{
+    return hmProcessTargetsPtr(client.name,target,targList,filter);
 }
 
 bool hmIsPluginLoaded(const string &nameOrPath, const string &version)
@@ -1572,24 +1667,29 @@ int hmWritePlayerDat(string client, const string &data, const string &ignore, bo
 hmConVar *hmFindConVar(const string &name)
 {
     hmGlobal *global = recallGlobal(NULL);
-    for (auto it = global->conVars.begin(), ite = global->conVars.end();it != ite;++it)
+    /*for (auto it = global->conVars.begin(), ite = global->conVars.end();it != ite;++it)
     {
         if (it->getName() == name)
             return &*it;
-    }
+    }*/
+    auto c = global->conVars.find(name);
+    if (c != global->conVars.end())
+        return &c->second;
     return nullptr;
 }
 
-vector<hmConVar>::iterator hmFindConVarIt(const string &name)
+unordered_map<string,hmConVar>::iterator hmFindConVarIt(const string &name)
 {
     hmGlobal *global = recallGlobal(NULL);
-    auto ite = global->conVars.end();
+    /*auto ite = global->conVars.end();
     for (auto it = global->conVars.begin();it != ite;++it)
     {
         if (it->getName() == name)
             return it;
     }
-    return ite;
+    return ite;*/
+    auto c = global->conVars.find(name);
+    return c;
 }
 
 int hmResolveFlag(char flag)

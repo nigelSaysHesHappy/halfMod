@@ -22,10 +22,10 @@ void handleDisconnect(int &sockfd);
 void handleDisconnect(int &sockfd, vector<hmHandle> &plugins);
 int handleConnection(int &sockfd, fd_set &readfds, hmGlobal &serverInfo, vector<hmHandle> &plugins, hostent *server, int port);
 void tryConnect(hmGlobal &serverInfo, int &sockfd, hostent *server, int port);
-int resetSocketSelect(fd_set &readfds, int sockfd);
+int resetSocketSelect(vector<hmHandle> &plugins, fd_set &readfds, int sockfd);
 
 int readSock(int sock, string &buffer);
-int findPlugins(const char *dir, vector<string> &paths);
+size_t findPlugins(const char *dir, vector<string> &paths);
 int loadPlugin(hmGlobal &info, vector<hmHandle> &p, const string &path);
 int loadExtension(hmGlobal &info, const string &path);
 void loadPlayerData(hmGlobal &info, const string &name);
@@ -38,7 +38,7 @@ int processEvent(vector<hmHandle> &plugins, int event);
 int processEvent(vector<hmHandle> &plugins, int event, smatch thread);
 int processCmd(hmGlobal &global, vector<hmHandle> &plugins, const string &cmd, const string &caller, const string &args = "", bool visible = true, bool console = false);
 int processHooks(vector<hmHandle> &plugins, const string &thread);
-void processTimers(vector<hmHandle> &plugins);
+timeval processTimers(vector<hmHandle> &plugins);
 
 int isInternalCmd(const string &cmd, int flags);
 int internalHM(hmGlobal &global, vector<hmHandle> &plugins, const string &caller, string args[], int argc);

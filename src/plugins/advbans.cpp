@@ -6,7 +6,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION     "v0.0.4"
+#define VERSION     "v0.0.5"
 
 #define BLINE       1
 #define KLINE       2
@@ -104,7 +104,7 @@ int onPlayerJoin(hmHandle &handle, smatch args)
 {
     string client = args[1].str();
     time_t cTime = time(NULL);
-    vector<hmPlayer>::iterator info = hmGetPlayerIterator(client);
+    hmPlayer *info = hmGetPlayerPtr(client);
     string mask = client + ":" + info->uuid + "@" + info->ip;
     for (auto it = alines.begin();it != alines.end();)
     {
@@ -120,7 +120,7 @@ int onPlayerJoin(hmHandle &handle, smatch args)
     return 0;
 }
 
-int blineCommand(hmHandle &handle, string client, string args[], int argc)
+int blineCommand(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     //hm_bline <pattern> [minutes] [reason]
     if (argc < 2)
@@ -156,25 +156,25 @@ int blineCommand(hmHandle &handle, string client, string args[], int argc)
 		if (banTime > 0)
 		{
 		    expire = cTime+(banTime*60);
-		    hmLog("B-LINE: " + client + " added a rule for \"" + args[1] + "\" set to expire in " + to_string(banTime) + " minute(s).",LOG_BAN,"bans.log");
+		    hmLog("B-LINE: " + client.name + " added a rule for \"" + args[1] + "\" set to expire in " + to_string(banTime) + " minute(s).",LOG_BAN,"bans.log");
 	    }
 	    else
-	        hmLog("B-LINE: " + client + " added a rule for \"" + args[1] + "\" permanently.",LOG_BAN,"bans.log");
-		autoLine line = { BLINE, args[1], regex(args[1]), cTime, banTime, expire, client, reason };
+	        hmLog("B-LINE: " + client.name + " added a rule for \"" + args[1] + "\" permanently.",LOG_BAN,"bans.log");
+		autoLine line = { BLINE, args[1], regex(args[1]), cTime, banTime, expire, client.name, reason };
 		saveLine(line);
 		alines.push_back(line);
 		string mask;
 		for (auto it = recallGlobal(NULL)->players.begin(), ite = recallGlobal(NULL)->players.end();it != ite;++it)
 		{
-		    mask = it->name + ":" + it->uuid + "@" + it->ip;
+		    mask = it->second.name + ":" + it->second.uuid + "@" + it->second.ip;
 		    if (regex_search(mask,line.pattern))
-		        blineUser(handle,&*alines.rbegin(),it->name,it->ip);
+		        blineUser(handle,&*alines.rbegin(),it->second.name,it->second.ip);
         }
 	}
     return 0;
 }
 
-int klineCommand(hmHandle &handle, string client, string args[], int argc)
+int klineCommand(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     //hm_kline <pattern> [minutes] [reason]
     if (argc < 2)
@@ -210,25 +210,25 @@ int klineCommand(hmHandle &handle, string client, string args[], int argc)
 		if (banTime > 0)
 		{
 		    expire = cTime+(banTime*60);
-		    hmLog("K-LINE: " + client + " added a rule for \"" + args[1] + "\" set to expire in " + to_string(banTime) + " minute(s).",LOG_BAN,"bans.log");
+		    hmLog("K-LINE: " + client.name + " added a rule for \"" + args[1] + "\" set to expire in " + to_string(banTime) + " minute(s).",LOG_BAN,"bans.log");
 	    }
 	    else
-	        hmLog("K-LINE: " + client + " added a rule for \"" + args[1] + "\" permanently.",LOG_BAN,"bans.log");
-		autoLine line = { KLINE, args[1], regex(args[1]), cTime, banTime, expire, client, reason };
+	        hmLog("K-LINE: " + client.name + " added a rule for \"" + args[1] + "\" permanently.",LOG_BAN,"bans.log");
+		autoLine line = { KLINE, args[1], regex(args[1]), cTime, banTime, expire, client.name, reason };
 		saveLine(line);
 		alines.push_back(line);
 		string mask;
 		for (auto it = recallGlobal(NULL)->players.begin(), ite = recallGlobal(NULL)->players.end();it != ite;++it)
 		{
-		    mask = it->name + ":" + it->uuid + "@" + it->ip;
+		    mask = it->second.name + ":" + it->second.uuid + "@" + it->second.ip;
 		    if (regex_search(mask,line.pattern))
-		        klineUser(&*alines.rbegin(),it->name);
+		        klineUser(&*alines.rbegin(),it->second.name);
         }
 	}
     return 0;
 }
 
-int unblineCommand(hmHandle &handle, string client, string args[], int argc)
+int unblineCommand(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     //hm_unbline <pattern>
     if (argc < 2)
@@ -246,7 +246,7 @@ int unblineCommand(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int unklineCommand(hmHandle &handle, string client, string args[], int argc)
+int unklineCommand(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     //hm_unkline <pattern>
     if (argc < 2)

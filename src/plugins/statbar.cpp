@@ -12,7 +12,7 @@
 #include <sys/vtimes.h>
 using namespace std;
 
-#define VERSION "v0.0.9"
+#define VERSION "v0.1.0"
 
 //static clock_t lastCPU, lastSysCPU, lastUserCPU;
 //static int numProcessors;
@@ -229,7 +229,7 @@ int onWorldInit(hmHandle &handle, smatch args)
     return 0;
 }
 
-int comStatBar(hmHandle &handle, string client, string args[], int argc)
+int comStatBar(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {

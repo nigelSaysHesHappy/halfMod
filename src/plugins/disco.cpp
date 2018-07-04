@@ -3,7 +3,7 @@
 #include <fstream>
 using namespace std;
 
-#define VERSION "v0.2.2"
+#define VERSION "v0.2.5"
 
 bool enabled = false;
 long interval = 1000;
@@ -24,7 +24,7 @@ const string music[MAXMUSIC] = {
     "music.credits"
 };
 
-void handlePlayer(hmHandle &handle, vector<hmPlayer>::iterator it);
+void handlePlayer(hmHandle &handle, unordered_map<std::string,hmPlayer>::iterator it);
 
 static void (*addConfigButtonCallback)(string,string,int,std::string (*)(std::string,int,std::string,std::string));
 
@@ -77,7 +77,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
 int updatePlayers(hmHandle &handle, string args)
 { // This will trigger in the event of a late load if there are already players on the server
     hmGlobal *global = recallGlobal(NULL);
-    for (auto it = global->players.begin(), ite = global->players.end();it != ite;it++)
+    for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
         handlePlayer(handle,it);
     return 1;
 }
@@ -119,7 +119,7 @@ int onPlayerDisconnect(hmHandle &handle, smatch args)
 {
     if (enabled)
     {
-        string client = stripFormat(args[1].str());
+        string client = stripFormat(lower(args[1].str()));
         for (auto it = readyPlayers.begin(), ite = readyPlayers.end();it != ite;++it)
         {
             if (*it == client)
@@ -138,30 +138,29 @@ int setDiscoTime(hmConVar &cvar, string oldVal, string newVal)
     return 0;
 }
 
-int toggleDisco(hmHandle &handle, string client, string args[], int argc)
+int toggleDisco(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     hmGlobal *global = recallGlobal(NULL);
-    string stripClient, lines, line;
+    string lines, line;
     if (enabled)
         hmSendRaw("replaceitem entity @a armor.feet minecraft:air\nreplaceitem entity @a armor.legs minecraft:air\nreplaceitem entity @a armor.chest minecraft:air\nreplaceitem entity @a armor.head minecraft:air");
-    for (auto it = global->players.begin(), ite = global->players.end();it != ite;it++)
+    for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
     {
-        stripClient = stripFormat(it->name);
         if (!enabled)
         {
-            handle.hookPattern("getArmor:" + stripClient,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + stripClient + " has the following entity data: \\{.*Inventory: \\[(.*)\\].*\\}$","getArmor");
-            hmSendRaw("data get entity " + stripClient);
+            handle.hookPattern("getArmor:" + it->first,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + it->second.name + " has the following entity data: \\{.*Inventory: \\[(.*)\\].*\\}$","getArmor");
+            hmSendRaw("data get entity " + it->first);
         }
         else
         {
-            for (int i = 1;(line = gettok(it->custom,i,"\n")) != "";i++)
+            for (int i = 1;(line = gettok(it->second.custom,i,"\n")) != "";i++)
             {
                 if (gettok(line,1,"=") == "disco")
                 {
                     if (line != "disco=null")
-                        hmSendRaw("execute at " + stripClient + " run summon minecraft:zombie ~ ~ ~ {ArmorItems:[" + deltok(line,1,"=") + "],ArmorDropChances:[2.0f,2.0f,2.0f,2.0f],NoAI:1b,Health:0.1f,Fire:300s,Silent:1}");
-                    it->custom = deltok(it->custom,i,"\n");
-                    hmWritePlayerDat(stripClient,"","disco");
+                        hmSendRaw("execute at " + it->first + " run summon minecraft:zombie ~ ~ ~ {ArmorItems:[" + deltok(line,1,"=") + "],ArmorDropChances:[2.0f,2.0f,2.0f,2.0f],NoAI:1b,Health:0.1f,Fire:300s,Silent:1}");
+                    it->second.custom = deltok(it->second.custom,i,"\n");
+                    hmWritePlayerDat(it->first,"","disco");
                     break;
                 }
             }
@@ -195,10 +194,10 @@ int toggleDisco(hmHandle &handle, string client, string args[], int argc)
 
 int getArmor(hmHandle &handle, hmHook hook, smatch args)
 {
-    string inv = args[1].str(), stripClient = stripFormat(gettok(hook.name,2,":"));
+    string inv = args[1].str(), stripClient = gettok(hook.name,2,":");
     regex ptrn ("\\{Slot: (100b|101b|102b|103b)");
     smatch ml;
-    auto it = hmGetPlayerIterator(stripClient);
+    hmPlayer *ptr = hmGetPlayerPtr(stripClient);
     if (regex_search(inv,ml,ptrn))
     {
         hmSendRaw("replaceitem entity " + stripClient + " armor.feet minecraft:air\nreplaceitem entity " + stripClient + " armor.legs minecraft:air\nreplaceitem entity " + stripClient + " armor.chest minecraft:air\nreplaceitem entity " + stripClient + " armor.head minecraft:air");
@@ -209,12 +208,12 @@ int getArmor(hmHandle &handle, hmHook hook, smatch args)
         ptrn = "\\{Slot: [0-9]+b, ?";
         inv = "disco=" + regex_replace(inv,ptrn,"{");
         if (hmWritePlayerDat(stripClient,inv,"disco",true) > -1)
-            it->custom = appendtok(it->custom,inv,"\n");
+            ptr->custom = appendtok(ptr->custom,inv,"\n");
     }
     else
     {
         hmWritePlayerDat(stripClient,"disco=null","disco",true);
-        it->custom = appendtok(it->custom,"disco=null","\n");
+        ptr->custom = appendtok(ptr->custom,"disco=null","\n");
     }
     readyPlayers.push_back(stripClient);
     handle.unhookPattern(hook.name);
@@ -244,7 +243,7 @@ int discoTime(hmHandle &handle, string args)
     return 0;
 }
 
-int voteDisco(hmHandle &handle, string client, string args[], int argc)
+int voteDisco(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (!hmIsPluginLoaded("vote"))
         hmReplyToClient(client,"Error: `vote' plugin is not loaded!");
@@ -260,31 +259,31 @@ int voteDisco(hmHandle &handle, string client, string args[], int argc)
 
 }
 
-void handlePlayer(hmHandle &handle, vector<hmPlayer>::iterator it)
+void handlePlayer(hmHandle &handle, unordered_map<std::string,hmPlayer>::iterator it)
 {
-    string line, stripClient = stripFormat(it->name);
+    string line;
     bool exists = false;
-    for (int i = 1;(line = gettok(it->custom,i,"\n")) != "";i++)
+    for (int i = 1;(line = gettok(it->second.custom,i,"\n")) != "";i++)
     {
         if (gettok(line,1,"=") == "disco")
         {
             exists = true;
             if (!enabled)
             {
-                hmSendRaw("replaceitem entity " + stripClient + " armor.feet minecraft:air\nreplaceitem entity " + stripClient + " armor.legs minecraft:air\nreplaceitem entity " + stripClient + " armor.chest minecraft:air\nreplaceitem entity " + stripClient + " armor.head minecraft:air");
+                hmSendRaw("replaceitem entity " + it->first + " armor.feet minecraft:air\nreplaceitem entity " + it->first + " armor.legs minecraft:air\nreplaceitem entity " + it->first + " armor.chest minecraft:air\nreplaceitem entity " + it->first + " armor.head minecraft:air");
                 if (line != "disco=null")
-                    hmSendRaw("execute at " + stripClient + " run summon minecraft:zombie ~ ~ ~ {ArmorItems:[" + deltok(line,1,"=") + "],ArmorDropChances:[2.0f,2.0f,2.0f,2.0f],NoAI:1b,Health:0.1f,Fire:300s,Silent:1}");
-                it->custom = deltok(it->custom,i,"\n");
-                hmWritePlayerDat(stripClient,"","disco");
+                    hmSendRaw("execute at " + it->first + " run summon minecraft:zombie ~ ~ ~ {ArmorItems:[" + deltok(line,1,"=") + "],ArmorDropChances:[2.0f,2.0f,2.0f,2.0f],NoAI:1b,Health:0.1f,Fire:300s,Silent:1}");
+                it->second.custom = deltok(it->second.custom,i,"\n");
+                hmWritePlayerDat(it->first,"","disco");
             }
-            else readyPlayers.push_back(stripClient);
+            else readyPlayers.push_back(it->first);
             break;
         }
     }
     if ((!exists) && (enabled))
     {
-        handle.hookPattern("getArmor:" + stripClient,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + stripClient + " has the following entity data: \\{.*Inventory: \\[(.*)\\].*\\}$","getArmor");
-        hmSendRaw("data get entity " + stripClient);
+        handle.hookPattern("getArmor:" + it->first,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: " + it->second.name + " has the following entity data: \\{.*Inventory: \\[(.*)\\].*\\}$","getArmor");
+        hmSendRaw("data get entity " + it->first);
     }
 }
 

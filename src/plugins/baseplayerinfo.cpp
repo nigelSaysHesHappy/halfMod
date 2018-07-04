@@ -7,7 +7,7 @@
 #include "nbtmap.h"
 using namespace std;
 
-#define VERSION "v0.0.7"
+#define VERSION "v0.0.8"
 
 string amtTime(/*love you*/long times);
 
@@ -31,7 +31,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     return 0;
 }
 
-int seenPlayer(hmHandle &handle, string caller, string args[], int argc)
+int seenPlayer(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -40,16 +40,16 @@ int seenPlayer(hmHandle &handle, string caller, string args[], int argc)
     }
     hmGlobal *global;
     global = recallGlobal(global);
-    hmPlayer client = hmGetPlayerInfo(args[1]);
     time_t vTime = time(NULL);
-    if (client.name != "")
+    if (hmIsPlayerOnline(args[1]))
     {
-        vTime -= client.join;
-        hmSendMessageAll(client.name + " has been online for " + amtTime(vTime) + "!");
+        hmPlayer *client = hmGetPlayerPtr(args[1]);
+        vTime -= client->join;
+        hmSendMessageAll(client->name + " has been online for " + amtTime(vTime) + "!");
     }
     else
     {
-        client = hmGetPlayerData(args[1]);
+        hmPlayer client = hmGetPlayerData(args[1]);
         if (client.uuid != "")
         {
             vTime -= client.quit;
@@ -61,14 +61,14 @@ int seenPlayer(hmHandle &handle, string caller, string args[], int argc)
     return 0;
 }
 
-int whoisPlayer(hmHandle &handle, string caller, string args[], int argc)
+int whoisPlayer(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if (argc < 2)
     {
         hmReplyToClient(caller,"Usage: " + args[0] + " <player>");
         return 1;
     }
-    caller = stripFormat(caller);
+    //caller = stripFormat(caller);
     hmGlobal *global;
     global = recallGlobal(global);
     vector<hmPlayer> targs;
@@ -121,7 +121,7 @@ int whoisPlayer(hmHandle &handle, string caller, string args[], int argc)
 		for (vector<hmPlayer>::iterator it = targs.begin(), ite = targs.end();it != ite;++it)
 		{
 			stripClient = stripFormat(it->name);
-			handle.hookPattern(caller + " whois","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + stripClient + ") has the following entity data: (\\{.*\\})$","whoisLookup");
+			handle.hookPattern(stripFormat(caller.name) + " whois","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + stripClient + ") has the following entity data: (\\{.*\\})$","whoisLookup");
             hmSendRaw("data get entity " + stripClient);
 		}
 	}
@@ -178,57 +178,57 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
         default:
             gm = "Unknown (" + gm + ")";
     }
-    hmPlayer target = hmGetPlayerInfo(client);
-    if (target.flags == 0)
+    hmPlayer *target = hmGetPlayerPtr(client);
+    if (target->flags == 0)
         access = "None";
     else
     {
         int FLAGS[25] = { 1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576,2097152,4194304,8388608,16777216 };
         string readable[25] = { "admin","ban","chat","custom1","effect","config","changeworld","cvar","inventory","custom2","kick","custom3","gamemode","custom4","oper","custom5","rsvp","rcon","slay","time","unban","vote","whitelist","cheats","weather" };
-        if ((target.flags & FLAG_ROOT) == FLAG_ROOT)
+        if ((target->flags & FLAG_ROOT) == FLAG_ROOT)
             access = "root";
         else
         {
             for (int i = 0;i < 25;i++)
-               if ((target.flags & FLAGS[i]) > 0)
+               if ((target->flags & FLAGS[i]) > 0)
                    access = addtok(access,readable[i],", ");
         }
         access.front() = toupper(access.at(0));
     }
     time_t cTime = time(NULL);
-    hmReplyToClient(caller,"Whois " + target.name + ":");
-    hmReplyToClient(caller,"  IP: " + target.ip);
-    hmReplyToClient(caller,"  UUID: " + target.uuid);
+    hmReplyToClient(caller,"Whois " + target->name + ":");
+    hmReplyToClient(caller,"  IP: " + target->ip);
+    hmReplyToClient(caller,"  UUID: " + target->uuid);
     hmReplyToClient(caller,"  Access: " + access);
     hmReplyToClient(caller,"  Gamemode: " + gm);
     hmReplyToClient(caller,"  Coords: " + gettok(position[0],1,".") + " " + gettok(position[1],1,".") + " " + gettok(position[2],1,"."));
     hmReplyToClient(caller,"  Dimension: " + dim);
     hmReplyToClient(caller,"  XP Level: " + nbt["XpLevel"]);
     hmReplyToClient(caller,"  Score: " + nbt["Score"]);
-    hmReplyToClient(caller,"  Online: " + amtTime(cTime-target.join));
-    if (target.death > 0)
+    hmReplyToClient(caller,"  Online: " + amtTime(cTime-target->join));
+    if (target->death > 0)
     {
-        hmReplyToClient(caller,"  Last Death: " + amtTime(cTime-target.death) + " ago " + target.name + " " + target.deathmsg);
+        hmReplyToClient(caller,"  Last Death: " + amtTime(cTime-target->death) + " ago " + target->name + " " + target->deathmsg);
     }
-    if (target.custom != "")
+    if (target->custom != "")
     {
-        for (int i = 1;i <= numtok(target.custom,"\n");i++)
-            hmReplyToClient(caller,"  " + gettok(gettok(target.custom,i,"\n"),1,"=") + ": " + gettok(gettok(target.custom,i,"\n"),2,"="));
+        for (int i = 1;i <= numtok(target->custom,"\n");i++)
+            hmReplyToClient(caller,"  " + gettok(gettok(target->custom,i,"\n"),1,"=") + ": " + gettok(gettok(target->custom,i,"\n"),2,"="));
     }
     handle.unhookPattern(hook.name);
     return 1;
 }
 
-int wherePlayer(hmHandle &handle, string client, string args[], int argc)
+int wherePlayer(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
-    if (client == "#SERVER")
+    if (client.name == "#SERVER")
     {
         hmReplyToClient(client,"You're in the console! Only players can use this command.");
         return 1;
     }
-    client = stripFormat(client);
-    handle.hookPattern(client + "WhereAmI","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + client + ") has the following entity data: (\\{.*\\})$","whereAmI");
-    hmSendRaw("data get entity " + client);
+    string name = stripFormat(client.name);
+    handle.hookPattern(name + "WhereAmI","^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + name + ") has the following entity data: (\\{.*\\})$","whereAmI");
+    hmSendRaw("data get entity " + name);
     return 0;
 }
 
@@ -257,7 +257,7 @@ int whereAmI(hmHandle &handle, hmHook hook, smatch args)
         default:
             dim = "Unknown (" + dim + ")";
     }
-    hmSendMessageAll(hmGetPlayerInfo(client).name + " is at coordinates ( " + gettok(position[0],1,".") + " " + gettok(position[1],1,".") + " " + gettok(position[2],1,".") + " ) in the " + dim + ".");
+    hmSendMessageAll(hmGetPlayerPtr(client)->name + " is at coordinates ( " + gettok(position[0],1,".") + " " + gettok(position[1],1,".") + " " + gettok(position[2],1,".") + " ) in the " + dim + ".");
     handle.unhookPattern(hook.name);
     return 1;
 }

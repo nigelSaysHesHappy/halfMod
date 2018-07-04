@@ -4,7 +4,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.0.9"
+#define VERSION "v0.1.0"
 
 struct WarpPoint
 {
@@ -18,17 +18,17 @@ int warpFlag = 0;
 
 void loadWarpPoints();
 vector<WarpPoint>::iterator getWarpPoint(string name);
-bool hasWarpAccess(string caller);
+bool hasWarpAccess(const hmPlayer &caller);
 string getDimension(int dim);
 string getDimensionHuman(int dim);
 int parseDimension(string dim);
 void saveWarpPoints();
 
-int warpMenuCmd(hmHandle &handle, string caller, string args[], int argc);
-int warpCmd(hmHandle &handle, string caller, string args[], int argc);
-int warpAddCmd(hmHandle &handle, string caller, string args[], int argc);
+int warpMenuCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc);
+int warpCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc);
+int warpAddCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc);
 int getWarpPos(hmHandle &handle, hmHook hook, smatch args);
-int warpRemCmd(hmHandle &handle, string caller, string args[], int argc);
+int warpRemCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc);
 int cWarpEnable(hmConVar &cvar, string oldVal, string newVal);
 int cWarpFlags(hmConVar &cvar, string oldVal, string newVal);
 
@@ -105,7 +105,7 @@ void loadWarpPoints()
     }
 }
 
-int warpMenuCmd(hmHandle &handle, string caller, string args[], int argc)
+int warpMenuCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if (warpEnabled)
     {
@@ -127,7 +127,7 @@ int warpMenuCmd(hmHandle &handle, string caller, string args[], int argc)
                 if (page != pages)
                     ite = warpPoints.begin() + 10*page;
                 for (auto it = warpPoints.begin() + 10*(page-1);it != ite;++it)
-                    hmSendRaw("tellraw " + caller + " [{\"text\":\"    Warp to \"},{\"text\":\"" + it->name + "\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!warp \\\\\"" + it->name + "\\\\\"\"}},{\"text\":\" \",\"color\":\"none\"},{\"text\":\"[DELETE]\",\"color\":\"red\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!warprem \\\\\"" + it->name + "\\\\\"\"}}]");
+                    hmSendRaw("tellraw " + caller.name + " [{\"text\":\"    Warp to \"},{\"text\":\"" + it->name + "\",\"color\":\"aqua\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!warp \\\\\"" + it->name + "\\\\\"\"}},{\"text\":\" \",\"color\":\"none\"},{\"text\":\"[DELETE]\",\"color\":\"red\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"!warprem \\\\\"" + it->name + "\\\\\"\"}}]");
             }
         }
         else
@@ -138,7 +138,7 @@ int warpMenuCmd(hmHandle &handle, string caller, string args[], int argc)
     return 0;
 }
 
-int warpCmd(hmHandle &handle, string caller, string args[], int argc)
+int warpCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if (warpEnabled)
     {
@@ -152,7 +152,7 @@ int warpCmd(hmHandle &handle, string caller, string args[], int argc)
                 if (point != warpPoints.end())
                 {
                     hmReplyToClient(caller,"Warping to " + point->name + " . . .");
-                    hmSendRaw("execute in " + getDimension(point->dimension) + " run teleport " + caller + " " + point->pos);
+                    hmSendRaw("execute in " + getDimension(point->dimension) + " run teleport " + caller.name + " " + point->pos);
                 }
                 else
                     hmReplyToClient(caller,"Unknown warp point: " + args[1] + "!");
@@ -166,7 +166,7 @@ int warpCmd(hmHandle &handle, string caller, string args[], int argc)
     return 0;
 }
 
-int warpAddCmd(hmHandle &handle, string caller, string args[], int argc)
+int warpAddCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if ((argc < 2) || ((argc < 6) && (argc > 2)))
     {
@@ -204,8 +204,8 @@ int warpAddCmd(hmHandle &handle, string caller, string args[], int argc)
             }
             else
             {
-                handle.hookPattern("warpadd " + args[1],"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + caller + ") has the following entity data: \\{(.*Pos: \\[([^d.]+\\.?[0-9]*)d, ([^d.]+\\.?[0-9]*)d, ([^d.]+\\.?[0-9]*)d\\].*)\\}$",&getWarpPos);
-                hmSendRaw("data get entity " + caller);
+                handle.hookPattern("warpadd " + args[1],"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: (" + caller.name + ") has the following entity data: \\{(.*Pos: \\[([^d.]+\\.?[0-9]*)d, ([^d.]+\\.?[0-9]*)d, ([^d.]+\\.?[0-9]*)d\\].*)\\}$",&getWarpPos);
+                hmSendRaw("data get entity " + caller.name);
             }
         }
         else
@@ -234,7 +234,7 @@ int getWarpPos(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int warpRemCmd(hmHandle &handle, string caller, string args[], int argc)
+int warpRemCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if (argc < 2)
         hmReplyToClient(caller,"Usage: " + args[0] + " <name>");
@@ -263,9 +263,9 @@ vector<WarpPoint>::iterator getWarpPoint(string name)
     return ite;
 }
 
-bool hasWarpAccess(string caller)
+bool hasWarpAccess(const hmPlayer &caller)
 {
-    if ((warpFlag == 0) || ((hmGetPlayerFlags(caller) & warpFlag) == warpFlag))
+    if ((warpFlag == 0) || ((caller.flags & warpFlag) == warpFlag))
         return true;
     return false;
 }

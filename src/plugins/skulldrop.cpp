@@ -3,7 +3,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.8"
+#define VERSION		"v0.0.9"
 
 bool skullDrop = true;
 
@@ -20,7 +20,7 @@ string toggleButton(string name, int socket, string ip, string client)
     return "Players will now drop their skull on death . . .";
 }
 
-int headCmd(hmHandle &handle, string client, string args[], int argc);
+int headCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc);
 
 extern "C" {
 
@@ -66,14 +66,14 @@ int onPlayerDeath(hmHandle &handle, smatch args)
 
 }
 
-int headCmd(hmHandle &handle, string client, string args[], int argc)
+int headCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
         hmReplyToClient(client,"Usage: " + args[0] + " <player>");
         return 1;
     }
-    hmSendRaw("give " + client + " minecraft:player_head{SkullOwner:\"" + args[1] + "\"}");
+    hmSendRaw("give " + client.name + " minecraft:player_head{SkullOwner:\"" + args[1] + "\"}");
     return 0;
 }
 

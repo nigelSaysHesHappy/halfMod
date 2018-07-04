@@ -2,7 +2,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.0.2"
+#define VERSION "v0.0.3"
 
 extern "C" {
 
@@ -18,7 +18,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     return 0;
 }
 
-int flagCmd(hmHandle &handle, string client, string args[], int argc)
+int flagCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 3)
     {

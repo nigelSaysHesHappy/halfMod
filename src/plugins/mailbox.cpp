@@ -9,7 +9,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.2.2"
+#define VERSION "v0.2.3"
 
 string amtTime(/*love you*/long times);
 
@@ -145,7 +145,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     return 0;
 }
 
-int admEnabled(hmHandle &handle, string client, string args[], int argc)
+int admEnabled(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -208,7 +208,7 @@ int admEnabled(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int admMessage(hmHandle &handle, string client, string args[], int argc)
+int admMessage(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -253,7 +253,7 @@ int admMessage(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int admSendChest(hmHandle &handle, string client, string args[], int argc)
+int admSendChest(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -298,7 +298,7 @@ int admSendChest(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int admSendItem(hmHandle &handle, string client, string args[], int argc)
+int admSendItem(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -343,7 +343,7 @@ int admSendItem(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int admSendXP(hmHandle &handle, string client, string args[], int argc)
+int admSendXP(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -388,7 +388,7 @@ int admSendXP(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int admSendSelf(hmHandle &handle, string client, string args[], int argc)
+int admSendSelf(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 2)
     {
@@ -431,7 +431,7 @@ int onPlayerJoin(hmHandle &handle, smatch args)
     return 0;
 }
 
-int sendMessage(hmHandle &handle, string client, string args[], int argc)
+int sendMessage(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if (argc < 3)
     {
@@ -446,7 +446,7 @@ int sendMessage(hmHandle &handle, string client, string args[], int argc)
     if (mailbox.uuid != "")
     {
         string rec = stripFormat(lower(mailbox.name));
-        if ((!allowSendSelf) && (stripFormat(lower(client)) == rec))
+        if ((!allowSendSelf) && (stripFormat(lower(client.name)) == rec))
         {
             hmReplyToClient(client,"You are not allowed to send anything to yourself!");
             return 1;
@@ -455,7 +455,7 @@ int sendMessage(hmHandle &handle, string client, string args[], int argc)
         if (file.is_open())
         {
             time_t cTime = time(NULL);
-            file<<"0:0:"<<client<<"="<<cTime<<"=0=";
+            file<<"0:0:"<<client.name<<"="<<cTime<<"=0=";
             for (int i = 2;i < argc;i++)
                 file<<args[i]<<" ";
             file<<endl;
@@ -471,14 +471,14 @@ int sendMessage(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int sendItem(hmHandle &handle, string client, string args[], int argc)
+int sendItem(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if (argc < 2)
     {
-        hmReplyToClient(client,"Usage: " + args[0] + " <player> [message ...]");
+        hmReplyToClient(caller,"Usage: " + args[0] + " <player> [message ...]");
         return 1;
     }
-    client = stripFormat(client);
+    string client = stripFormat(lower(caller.name));
     hmPlayer mailbox;
     if (hmIsPlayerOnline(args[1]))
         mailbox = hmGetPlayerInfo(args[1]);
@@ -495,7 +495,7 @@ int sendItem(hmHandle &handle, string client, string args[], int argc)
         else
             msgWith = "A shiny gift!";
         string target = stripFormat(lower(mailbox.name));
-        if ((!allowSendSelf) && (stripFormat(lower(client)) == target))
+        if ((!allowSendSelf) && (client == target))
         {
             hmReplyToClient(client,"You are not allowed to send anything to yourself!");
             return 1;
@@ -533,7 +533,7 @@ int sendItemCheck(hmHandle &handle, hmHook hook, smatch args)
     {
         hmSendRaw("kill @e[type=minecraft:item,tag=killme]");
         time_t cTime = time(NULL);
-        file<<"0:2:"<<hmGetPlayerInfo(client).name<<"="<<cTime<<"="<<tags<<"="<<msgWith;
+        file<<"0:2:"<<hmGetPlayerPtr(client)->name<<"="<<cTime<<"="<<tags<<"="<<msgWith;
         file<<endl;
         file.close();
         if (hmIsPlayerOnline(target))
@@ -556,14 +556,14 @@ int sendItemFail(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int sendChest(hmHandle &handle, string client, string args[], int argc)
+int sendChest(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if (argc < 2)
     {
-        hmReplyToClient(client,"Usage: " + args[0] + " <player> [message ...]");
+        hmReplyToClient(caller,"Usage: " + args[0] + " <player> [message ...]");
         return 1;
     }
-    client = stripFormat(client);
+    string client = stripFormat(lower(caller.name));
     hmPlayer mailbox;
     if (hmIsPlayerOnline(args[1]))
         mailbox = hmGetPlayerInfo(args[1]);
@@ -580,7 +580,7 @@ int sendChest(hmHandle &handle, string client, string args[], int argc)
         else
             msgWith = "A shiny gift!";
         string target = stripFormat(lower(mailbox.name));
-        if ((!allowSendSelf) && (stripFormat(lower(client)) == target))
+        if ((!allowSendSelf) && (client == target))
         {
             hmReplyToClient(client,"You are not allowed to send anything to yourself!");
             return 1;
@@ -640,7 +640,7 @@ int sendChestCheck(hmHandle &handle, hmHook hook, smatch args)
         hmSendRaw("setblock " + pos + " minecraft:air replace\n" +
                   "clear " + client + " minecraft:iron_ingot 5");
         time_t cTime = time(NULL);
-        file<<"0:3:"<<hmGetPlayerInfo(client).name<<"="<<cTime<<"="<<tags<<"="<<msgWith;
+        file<<"0:3:"<<hmGetPlayerPtr(client)->name<<"="<<cTime<<"="<<tags<<"="<<msgWith;
         file<<endl;
         file.close();
         if (hmIsPlayerOnline(target))
@@ -671,14 +671,14 @@ int sendChestFailIron(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int sendXP(hmHandle &handle, string client, string args[], int argc)
+int sendXP(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if (argc < 3)
     {
-        hmReplyToClient(client,"Usage: " + args[0] + " <player> <XP> [message ...] - XP is a valid amount of XP levels");
+        hmReplyToClient(caller,"Usage: " + args[0] + " <player> <XP> [message ...] - XP is a valid amount of XP levels");
         return 1;
     }
-    client = stripFormat(client);
+    string client = stripFormat(lower(caller.name));
     if ((stringisnum(args[2])) && ((xp2send = stoi(args[2])) > 0))
     {
         hmPlayer mailbox;
@@ -697,7 +697,7 @@ int sendXP(hmHandle &handle, string client, string args[], int argc)
             else
                 msgWith = "A shiny gift!";
             string target = stripFormat(lower(mailbox.name));
-            if ((!allowSendSelf) && (stripFormat(lower(client)) == target))
+            if ((!allowSendSelf) && (client == target))
             {
                 hmReplyToClient(client,"You are not allowed to send anything to yourself!");
                 return 1;
@@ -727,7 +727,7 @@ int sendXPCheck(hmHandle &handle, hmHook hook, smatch args)
             amount = getRealXP(levels) - getRealXP(levels - xp2send);
             hmSendRaw(data2str("experience add %s -%i",client.c_str(),amount));
             time_t cTime = time(NULL);
-            file<<"0:1:"<<hmGetPlayerInfo(client).name<<"="<<cTime<<"="<<amount<<"="<<msgWith;
+            file<<"0:1:"<<hmGetPlayerPtr(client)->name<<"="<<cTime<<"="<<amount<<"="<<msgWith;
             file<<endl;
             file.close();
             if (hmIsPlayerOnline(target))
@@ -747,12 +747,12 @@ int sendXPCheck(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int checkMail(hmHandle &handle, string client, string args[], int argc)
+int checkMail(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     int page = 1;
     if ((argc > 1) && (stringisnum(args[1],2)))
         page = stoi(args[1]);
-    client = stripFormat(lower(client));
+    string client = stripFormat(lower(caller.name));
     ifstream file ("./halfMod/plugins/mailbox/" + client + ".mail");
     if (file.is_open())
     {
@@ -821,15 +821,15 @@ int checkMail(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int mailOpen(hmHandle &handle, string client, string args[], int argc)
+int mailOpen(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if ((argc < 2) || (!stringisnum(args[1],1)))
     {
-        hmReplyToClient(client,"Usage: " + args[0] + " <N> - N is a valid item number in your mailbox");
+        hmReplyToClient(caller,"Usage: " + args[0] + " <N> - N is a valid item number in your mailbox");
         return 1;
     }
     int item = stoi(args[1]);
-    client = stripFormat(lower(client));
+    string client = stripFormat(lower(caller.name));
     fstream file ("./halfMod/plugins/mailbox/" + client + ".mail",ios_base::in);
     if (file.is_open())
     {
@@ -935,15 +935,15 @@ int mailOpen(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int mailAccept(hmHandle &handle, string client, string args[], int argc)
+int mailAccept(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if ((argc < 2) || (!stringisnum(args[1],1)))
     {
-        hmReplyToClient(client,"Usage: " + args[0] + " <N> - N is a valid item number in your mailbox");
+        hmReplyToClient(caller,"Usage: " + args[0] + " <N> - N is a valid item number in your mailbox");
         return 1;
     }
     int item = stoi(args[1]);
-    client = stripFormat(lower(client));
+    string client = stripFormat(lower(caller.name));
     fstream file ("./halfMod/plugins/mailbox/" + client + ".mail",ios_base::in);
     if (file.is_open())
     {
@@ -1021,15 +1021,15 @@ int mailAccept(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int mailDelete(hmHandle &handle, string client, string args[], int argc)
+int mailDelete(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
 {
     if ((argc < 2) || (!stringisnum(args[1],1)))
     {
-        hmReplyToClient(client,"Usage: " + args[0] + " <N> - N is a valid item number in your mailbox");
+        hmReplyToClient(caller,"Usage: " + args[0] + " <N> - N is a valid item number in your mailbox");
         return 1;
     }
     int item = stoi(args[1]);
-    client = stripFormat(lower(client));
+    string client = stripFormat(lower(caller.name));
     fstream file ("./halfMod/plugins/mailbox/" + client + ".mail",ios_base::in);
     if (file.is_open())
     {
@@ -1071,7 +1071,7 @@ int mailDelete(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int mailReturn(hmHandle &handle, string client, string args[], int argc)
+int mailReturn(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 {
     if ((argc < 2) || (!stringisnum(args[1],1)))
     {
@@ -1086,7 +1086,7 @@ int mailReturn(hmHandle &handle, string client, string args[], int argc)
             msg = msg + " " + args[i];
     }
     int item = stoi(args[1]);
-    string stripClient = stripFormat(lower(client));
+    string stripClient = stripFormat(lower(client.name));
     fstream file ("./halfMod/plugins/mailbox/" + stripClient + ".mail",ios_base::in);
     if (file.is_open())
     {
@@ -1132,13 +1132,13 @@ int mailReturn(hmHandle &handle, string client, string args[], int argc)
         else
             data = "{" + deltok(deltok(mail,1,"{"),-1,"}") + "}";
         if (stripClient == stripFormat(lower(sender)))
-            box.push_back(data2str("0:%i:%s=%li=%s=%s",type,client.c_str(),cTime,data.c_str(),msg.c_str()));
+            box.push_back(data2str("0:%i:%s=%li=%s=%s",type,client.name.c_str(),cTime,data.c_str(),msg.c_str()));
         else
         {
             file.open("./halfMod/plugins/mailbox/" + stripFormat(lower(sender)) + ".mail",ios_base::out|ios_base::app);
             if (file.is_open())
             {
-                file<<"0:"<<type<<":"<<client<<"="<<cTime<<"="<<data<<"="<<msg<<endl;
+                file<<"0:"<<type<<":"<<client.name<<"="<<cTime<<"="<<data<<"="<<msg<<endl;
                 file.close();
             }
             else

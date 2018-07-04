@@ -5,7 +5,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.7"
+#define VERSION		"v0.0.8"
 
 int reservedSlots = 1;
 
@@ -67,11 +67,11 @@ int onPlayerJoin(hmHandle &handle, smatch args)
     {
         if ((hmGetPlayerFlags(client) & FLAG_RSVP) > 0)
         {
-            for (auto it = global->players.rbegin(), ite = global->players.rend();it != ite;++it)
+            for (auto it = global->players.begin(), ite = global->players.end();it != ite;++it)
             {
-                if ((it->flags & FLAG_RSVP) == 0)
+                if ((it->second.flags & FLAG_RSVP) == 0)
                 {
-                    hmSendRaw("kick " + stripFormat(it->name) + " Kicked for slot reservation.");
+                    hmSendRaw("kick " + it->first + " Kicked for slot reservation.");
                     break;
                 }
             }

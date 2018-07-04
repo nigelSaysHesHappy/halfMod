@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <vector>
 
+#define _NBTVERSION_ 0020
+
 class NBTCompound
 {
     private:
@@ -14,13 +16,14 @@ class NBTCompound
     
     public:
         NBTCompound() { data.clear(); nbt.clear(); }
-        NBTCompound(std::string nbt_data) { parse(nbt_data); }
+        NBTCompound(const std::string &nbt_data) { parse(nbt_data); }
         
         std::string& operator[] (const std::string &key) { return nbt[key]; }
         friend std::ostream& operator<< (std::ostream& stream, NBTCompound &comp) { stream<<comp.get(); return stream; }
         
         size_t size() { return nbt.size(); }
         size_t erase(const std::string &key) { return nbt.erase(key); }
+        std::unordered_map<std::string,std::string>::iterator erase(std::unordered_map<std::string,std::string>::const_iterator pos) { return nbt.erase(pos); }
         void clear() { nbt.clear(); }
         
         std::unordered_map<std::string,std::string>::iterator begin() { return nbt.begin(); }
@@ -28,7 +31,7 @@ class NBTCompound
         std::unordered_map<std::string,std::string>::const_iterator cbegin() { return nbt.cbegin(); }
         std::unordered_map<std::string,std::string>::const_iterator cend() { return nbt.cend(); }
         
-        const std::string get(const std::string &key = "")
+        std::string get(const std::string &key = "")
         {
             if (key.size() < 1)
             {
@@ -48,14 +51,14 @@ class NBTCompound
             return "";
         }
         
-        void set(const std::string &key, std::string value)
+        void set(const std::string &key, const std::string &value)
         {
             auto v = nbt.emplace(key,value);
             if (!v.second)
-                nbt.at(key) = value;
+                v.first->second = value;
         }
         
-        void parse(std::string nbt_data = "")
+        void parse(const std::string &nbt_data = "")
         {
             if (nbt_data.size() > 0)
                 data = nbt_data;
@@ -65,7 +68,7 @@ class NBTCompound
             int cBrace = 0, sBrace = 0;
             bool quote = false;
             bool starting = false;
-            for (auto it = data.begin(), start = data.begin(), ite = data.end();it != ite;++it)
+            for (auto it = data.begin(), start = it, ite = data.end();it != ite;++it)
             {
                 if (quote)
                 {
@@ -132,13 +135,13 @@ class NBTList
     
     public:
         NBTList() { data.clear(); nbt.clear(); }
-        NBTList(std::string nbt_data) { parse(nbt_data); }
+        NBTList(const std::string &nbt_data) { parse(nbt_data); }
         
         std::string& operator[] (size_t n) { return nbt.at(n); }
-        friend std::ostream& operator<< (std::ostream& stream, NBTList &list) { stream<<list.getList(); return stream; }
+        friend std::ostream& operator<< (std::ostream& stream, NBTList &list) { stream<<list.get(); return stream; }
         
         size_t size() { return nbt.size(); }
-        void push_back(std::string item) { nbt.push_back(item); }
+        void push_back(const std::string &item) { nbt.push_back(item); }
         void clear() { nbt.clear(); }
         
         std::vector<std::string>::iterator begin() { return nbt.begin(); }
@@ -173,16 +176,29 @@ class NBTList
             return initial-nbt.size();
         }
         
-        const std::string get(int pos)
+        std::string get()
+        {
+            std::string full = "[";
+            if (nbt.size() > 0)
+            {
+                for (auto& it: nbt)
+                    full = full + it + ", ";
+                full.erase(full.size()-2,2);
+            }
+            full += "]";
+            return full;
+        }
+        
+        std::string get(int pos)
         {
             if (pos < 0)
                 pos = nbt.size()+pos;
             if ((pos > -1) && (pos < nbt.size()))
-                return nbt[pos];
+                return nbt.at(pos);
             return "";
         }
         
-        const std::string get(size_t start, size_t len)
+        std::string get(size_t start, size_t len)
         {
             std::string full = "[";
             if ((start+1 < nbt.size()) && (len > 0))
@@ -198,7 +214,7 @@ class NBTList
             return full;
         }
     
-        const std::string get(std::vector<std::string>::iterator first, std::vector<std::string>::iterator last)
+        std::string get(std::vector<std::string>::iterator first, std::vector<std::string>::iterator last)
         {
             std::string full = "[";
             for (;first != last;++first)
@@ -208,20 +224,7 @@ class NBTList
             return full;
         }
         
-        std::string getList()
-        {
-            std::string full = "[";
-            if (nbt.size() > 0)
-            {
-                for (auto& it: nbt)
-                    full = full + it + ", ";
-                full.erase(full.size()-2,2);
-            }
-            full += "]";
-            return full;
-        }
-        
-        void parse(std::string nbt_data = "")
+        void parse(const std::string &nbt_data = "")
         {
             if (nbt_data.size() > 0)
                 data = nbt_data;
@@ -230,7 +233,7 @@ class NBTList
             int cBrace = 0, sBrace = 0;
             bool quote = false;
             bool starting = false;
-            for (auto it = data.begin(), start = data.begin(), ite = data.end();it != ite;++it)
+            for (auto it = data.begin(), start = it, ite = data.end();it != ite;++it)
             {
                 if (quote)
                 {
@@ -250,10 +253,14 @@ class NBTList
                 else if (*it == '}')
                     cBrace--;
                 else if (*it == '[')
+                {
                     sBrace++;
+                    if (sBrace == 1)
+                        continue;
+                }
                 else if (*it == ']')
                     sBrace--;
-                if ((!quote) && (*it != '[') && (*it != ' ') && (*it != ',') && (!starting) && (sBrace == 1))
+                if ((!quote) && (*it != ' ') && (*it != ',') && (!starting))
                 {
                     start = it;
                     starting = true;
@@ -278,6 +285,90 @@ class NBTList
                 }
             }
         }
+};
+
+class NBTWrapper
+{
+    private:
+        NBTCompound comp;
+        std::unordered_map<std::string,std::string> nbt;
+        
+        void parseComp(const std::string &key, const std::string &data)
+        {
+            NBTCompound c (data);
+            for (auto it = c.begin(), ite = c.end();it != ite;++it)
+            {
+                std::string index = key + "." + it->first;
+                nbt.emplace(index,it->second);
+                if (it->second.at(0) == '{')
+                    parseComp(index,it->second);
+                else if (it->second.at(0) == '[')
+                    parseList(index,it->second);
+            }
+        }
+        
+        void parseList(const std::string &key, const std::string &data)
+        {
+            NBTList l (data);
+            int i = 0;
+            for (auto it = l.begin(), ite = l.end();it != ite;++it)
+            {
+                std::string index = key + "[" + std::to_string(i++) + "]";
+                nbt.emplace(index,*it);
+                if (it->at(0) == '{')
+                    parseComp(index,*it);
+                else if (it->at(0) == '[')
+                    parseList(index,*it);
+            }
+        }
+        
+    public:
+        NBTWrapper() { comp.clear(); }
+        NBTWrapper(const NBTCompound &data) { parse(data); }
+        NBTWrapper(const std::string &data) { parse(data); }
+        
+        void parse(const NBTCompound &data) { comp = data; parse(); }
+        
+        void parse(const std::string &data = "")
+        {
+            if (data.size() > 0)
+                comp.parse(data);
+            if (nbt.size() > 0)
+                nbt.clear();
+            if (comp.size() > 0)
+            {
+                for (auto it = comp.begin(), ite = comp.end();it != ite;++it)
+                {
+                    nbt.emplace(it->first,it->second);
+                    if (it->second.at(0) == '{')
+                        parseComp(it->first,it->second);
+                    else if (it->second.at(0) == '[')
+                        parseList(it->first,it->second);
+                }
+            }
+        }
+        
+        std::string get(const std::string &key = "")
+        {
+            if (key.size() < 1) return comp.get();
+            auto v = nbt.find(key);
+            if (v != nbt.end())
+                return v->second;
+            return "";
+        }
+        
+        std::string& operator[] (const std::string &key) { return nbt[key]; }
+        friend std::ostream& operator<< (std::ostream& stream, NBTWrapper &wrap) { stream<<wrap.get(); return stream; }
+        
+        size_t size() { return nbt.size(); }
+        size_t erase(const std::string &key) { return nbt.erase(key); }
+        std::unordered_map<std::string,std::string>::iterator erase(std::unordered_map<std::string,std::string>::const_iterator pos) { return nbt.erase(pos); }
+        void clear() { nbt.clear(); }
+        
+        std::unordered_map<std::string,std::string>::iterator begin() { return nbt.begin(); }
+        std::unordered_map<std::string,std::string>::iterator end() { return nbt.end(); }
+        std::unordered_map<std::string,std::string>::const_iterator cbegin() { return nbt.cbegin(); }
+        std::unordered_map<std::string,std::string>::const_iterator cend() { return nbt.cend(); }
 };
 
 #endif
