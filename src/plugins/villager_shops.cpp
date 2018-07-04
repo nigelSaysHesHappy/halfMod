@@ -4,7 +4,7 @@
 #include "nbtmap.h"
 using namespace std;
 
-#define VERSION		"v0.2.4"
+#define VERSION		"v0.2.5"
 
 struct Trade
 {
@@ -240,7 +240,7 @@ int chestCheck(hmHandle &handle, hmHook hook, smatch args)
             nbt = nbt + "\"" + to_string(i) + ";1\",";
         nbt.erase(nbt.size()-1);
         nbt += "]}";
-        hmSendRaw("execute in " + dimension + " run data merge block " + pos + " {Items:" + ITEMS.getList() + "}");
+        hmSendRaw("execute in " + dimension + " run data merge block " + pos + " {Items:" + ITEMS.get() + "}");
         if (cost != "0")
             hmSendRaw("clear " + client + " minecraft:diamond " + cost);
         hmSendRaw("execute in " + dimension + " run summon minecraft:villager " + pos + " " + nbt);
@@ -325,7 +325,7 @@ int stockChestCheck(hmHandle &handle, hmHook hook, smatch args)
     // restock the villager
     NBTList tags (parseChestNBT(items,trades));
     tags.push_back("\"" + client + "\"");
-    string stock = "{Tags:" + tags.getList() + ",Offers:{Recipes:[";
+    string stock = "{Tags:" + tags.get() + ",Offers:{Recipes:[";
     if (shopsDistance == 0.0)
         stock = "execute in " + dimension + " positioned " + pos + " run data merge entity @e[type=minecraft:villager,limit=1,sort=nearest,tag=" + client + "] " + stock;
     else
@@ -339,7 +339,7 @@ int stockChestCheck(hmHandle &handle, hmHook hook, smatch args)
     }
     stock.erase(stock.size()-1);
     stock += "]}}";
-    hmSendRaw(stock + "\nexecute in " + dimension + " run data merge block " + pos + " {Items:" + items.getList() + "}");
+    hmSendRaw(stock + "\nexecute in " + dimension + " run data merge block " + pos + " {Items:" + items.get() + "}");
     hmReplyToClient(client,"Your " + shopName + " shop has been restocked and you have received all payments!");
     return 1;
 }

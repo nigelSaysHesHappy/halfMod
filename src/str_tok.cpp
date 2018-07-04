@@ -28,14 +28,18 @@ int randint(int lo, int hi)
 {
     static bool seeded = false;
     if (!seeded) srand(time(NULL)), seeded = true;
-    int i = (lo + rand()) % hi;
+    bool neg = false;
+    if (lo < 0) hi -= lo, neg = true;
+    int i = rand() % hi;
     if (i < lo) i += lo;
+    if (i > hi) i = hi;
+    if (neg) i += lo;
     return i;
 }
 
 int str2int(string str)
 {
-    return atoi(str.c_str());
+    return stoi(str);
     /*
     string ret;
     int i, r = 0, neg = 1;
@@ -63,7 +67,7 @@ int str2int(string str)
 
 float str2float(string str)
 {
-    return atof(str.c_str());
+    return stof(str);
     /*
     string ret;
     int i, a, y, dec = 0;
@@ -99,11 +103,12 @@ float str2float(string str)
 
 string int2str(int n)
 {
+    return to_string(n);
     //Depreciated.
     //Use 'string data2str(format...)'
     //Example:
     //        data2str("%i",420)
-    int len[10], x, z, neg = 0;
+    /*int len[10], x, z, neg = 0;
     double y;
     if (n < 0)
     {
@@ -136,7 +141,7 @@ string int2str(int n)
     {
         ret = "-" + ret;
     }
-    return ret;
+    return ret;*/
 }
 
 int len(string text)
@@ -144,7 +149,28 @@ int len(string text)
     return text.size();
 }
 
-int numtok(string tokens, string delim)
+/*int numtok_proper_slow(string tokens, const string &delim)
+{
+    if (tokens.size() == 0) return 0;
+	int y = 1;
+	size_t i;
+	while (tokens.find(delim) == 0)
+	    tokens.erase(0,delim.size());
+    while ((i = tokens.find(delim,tokens.size()-delim.size())) != string::npos)
+        tokens.erase(i,delim.size());
+	while ((i = tokens.find(delim + delim)) != string::npos)
+	    tokens.erase(i,delim.size());
+    for (size_t x = 1;x < tokens.size();x+=delim.size()+1)
+    {
+        if ((x = tokens.find(delim,x)) != string::npos)
+            y++;
+        else
+            break;
+    }
+	return y;
+}*/
+
+int numtok(const string &tokens, const string &delim)
 {
     if (tokens.size() == 0) return 0;
 	int y = 1;
@@ -161,7 +187,7 @@ int numtok(string tokens, string delim)
 	return y;
 }
 
-string gettok(string tokens, int tok, string delim)
+string gettok(const string &tokens, int tok, const string &delim)
 {
      int x = 1, y = 0, z = delim.size(), c = numtok(tokens,delim);
      string ret = "";
@@ -208,7 +234,7 @@ int isin(string text, string subtext, int pos = -1)
 }
 */
 
-int isin(string text, string subtext, int pos)
+int isin(const string &text, const string &subtext, int pos)
 {
     int z = 0;
     for (int x = 0, s = subtext.size(), y = text.size();x < y;x++)
@@ -255,7 +281,7 @@ int isin(string text, string subtext, int pos)
     else return a;
 }
 */
-string strremove(string text, string subtext)
+string strremove(string text, const string &subtext)
 {
     size_t i;
     while ((i = text.find(subtext)) != string::npos)
@@ -263,7 +289,7 @@ string strremove(string text, string subtext)
     return text;
 }
 
-int numqtok(string tokens, string delim)
+int numqtok(const string &tokens, const string &delim)
 {
     if (tokens.size() == 0) return 0;
 	int y = 1;
@@ -281,7 +307,7 @@ int numqtok(string tokens, string delim)
 	return y;
 }
 
-string getqtok(string tokens, int tok, string delim)
+string getqtok(const string &tokens, int tok, const string &delim)
 {
     int x = 1, y = 0, z = delim.size(), c = numtok(tokens,delim);
     string ret;
@@ -338,7 +364,7 @@ string getqtok(string tokens, int tok, string delim)
      else return ret;
 }*/
 
-bool iswm(string text, string subtext)
+bool iswm(const string &text, const string &subtext)
 {
     int a = -1, b = numtok(subtext,"*"), r = 0, l = 0;
     string str;
@@ -393,7 +419,7 @@ bool iswm(string text, string subtext)
     else return true;
 }
 
-bool stringisalpha(string text)
+bool stringisalpha(const string &text)
 {
     for (int x = 0; x < int(text.size()); x++)
     {
@@ -402,7 +428,7 @@ bool stringisalpha(string text)
     return true;
 }
 
-bool stringisalnum(string text)
+bool stringisalnum(const string &text)
 {
     for (int x = 0; x < int(text.size()); x++)
     {
@@ -411,7 +437,7 @@ bool stringisalnum(string text)
     return true;
 }
 
-bool stringislower(string text)
+bool stringislower(const string &text)
 {
     for (int x = 0; x < int(text.size()); x++)
     {
@@ -420,7 +446,7 @@ bool stringislower(string text)
     return true;
 }
 
-bool stringisupper(string text)
+bool stringisupper(const string &text)
 {
     for (int x = 0; x < int(text.size()); x++)
     {
@@ -468,13 +494,13 @@ bool stringisnum(string text, int lo, int hi)
      return false;
 }
 
-bool isletter(string text)
+bool isletter(const string &text)
 {
      if ((int(text.size()) == 1) && (isalpha(text[0]))) return true;
      return false;
 }
 
-bool isletter(string text, string subtext)
+bool isletter(const string &text, const string &subtext)
 {
      if ((isletter(text)) && (isin(subtext,text))) return true;
      return false;
@@ -533,7 +559,7 @@ string lower(string text)
 }
 */
 
-int findtok(string tokens, string token, int tok, string delim)
+int findtok(const string &tokens, const string &token, int tok, const string &delim)
 {
 	int x, a = 0;
 	for (x = 1; x <= numtok(tokens,delim); x++)
@@ -546,7 +572,7 @@ int findtok(string tokens, string token, int tok, string delim)
 	else return 0;
 }
 
-string wildtok(string tokens, string token, int tok, string delim)
+string wildtok(const string &tokens, const string &token, int tok, const string &delim)
 {
 	int a = 0;
 	string str, ret = tokens;
@@ -560,7 +586,7 @@ string wildtok(string tokens, string token, int tok, string delim)
 	else return ret;
 }
 
-string delwildtok(string tokens, string token, int tok, string delim)
+string delwildtok(const string &tokens, const string &token, int tok, const string &delim)
 {
 	int a = 0;
 	string str, ret;
@@ -577,19 +603,19 @@ string delwildtok(string tokens, string token, int tok, string delim)
 	return ret;
 }
 
-bool istok(string text, string token, string delim)
+bool istok(const string &text, const string &token, const string &delim)
 {
     if (findtok(lower(text),lower(token),1,delim) > 0) return true;
     else return false;
 }
 
-bool istokcs(string text, string token, string delim)
+bool istokcs(const string &text, const string &token, const string &delim)
 {
     if (findtok(text,token,1,delim) > 0) return true;
     else return false;
 }
 
-string addtok(string text, string token, string delim)
+string addtok(string text, const string &token, const string &delim)
 {
     if (!istok(text,token,delim))
     {
@@ -604,7 +630,7 @@ string addtok(string text, string token, string delim)
     return text;
 }
 
-string deltok(string text, int tok, string delim)
+string deltok(const string &text, int tok, const string &delim)
 {
     string ret;
     int a = numtok(text,delim);
@@ -615,7 +641,7 @@ string deltok(string text, int tok, string delim)
     else return ret;
 }
 
-string instok(string text, string token, int tok, string delim)
+string instok(string text, const string &token, int tok, const string &delim)
 {
     string ret;
 	if (text.compare(0,delim.size(),delim) == 0) text = text.erase(0,delim.size());
@@ -631,7 +657,7 @@ string instok(string text, string token, int tok, string delim)
     else return ret;
 }
 
-string matchtok(string text, string token, int tok, string delim)
+string matchtok(const string &text, const string &token, int tok, const string &delim)
 {
     int a = numtok(text,delim), y = 0, x;
     if ((tok > a) || (tok == 0)) return "";
@@ -644,7 +670,7 @@ string matchtok(string text, string token, int tok, string delim)
     else return "";
 }
 
-string puttok(string text, string token, int tok, string delim)
+string puttok(const string &text, const string &token, int tok, const string &delim)
 {
     string ret;
     int a = numtok(text,delim);
@@ -659,7 +685,7 @@ string puttok(string text, string token, int tok, string delim)
     else return ret;
 }
 
-string remtok(string text, string token, int tok, string delim)
+string remtok(string text, const string &token, int tok, const string &delim)
 {
     int a = findtok(text,token,0,delim);
     if ((tok > a) || (tok < a*-1) || (a == 0)) return text;
@@ -669,7 +695,7 @@ string remtok(string text, string token, int tok, string delim)
     return text;
 }
 
-string reptok(string text, string token, string stoken, int tok, string delim)
+string reptok(string text, const string &token, const string &stoken, int tok, const string &delim)
 {
     int a = findtok(text,token,0,delim);
     if ((tok > a) || (tok < a*-1) || (a == 0)) return text;
@@ -679,7 +705,7 @@ string reptok(string text, string token, string stoken, int tok, string delim)
     return text;
 }
 
-string sorttok(string text, string delim)
+string sorttok(const string &text, const string &delim)
 {
     string ret, z;
     for (int x = numtok(text,delim), r;x;x--)
@@ -692,7 +718,7 @@ string sorttok(string text, string delim)
     return ret;
 }
 
-string strreplace(string text, string find, string replace)
+string strreplace(string text, const string &find, const string &replace)
 {
     int flen = find.size(), rlen = replace.size();
     if (!isin(text,find)) return text;
@@ -708,7 +734,7 @@ string strreplace(string text, string find, string replace)
     return text;
 }
 
-string appendtok(string text, string token, string delim)
+string appendtok(string text, const string &token, const string &delim)
 {
 	if (text.size() >= 1)
 	{
@@ -720,13 +746,13 @@ string appendtok(string text, string token, string delim)
 	return text;
 }
 
-string randtok(string text, string delim)
+string randtok(const string &text, const string &delim)
 {
     if (numtok(text,delim) <= 1) return text;
     return gettok(text,randint(1,numtok(text,delim)),delim);
 }
 
-string randomizetok(string text, string delim)
+string randomizetok(string text, const string &delim)
 {
     if (numtok(text,delim) <= 1) return text;
     string ret;
@@ -740,7 +766,7 @@ string randomizetok(string text, string delim)
     return ret;
 }
 
-string strleft(string text, int n)
+string strleft(const string &text, int n)
 {
     if ((n >= int(text.size())) || (n*-1 >= int(text.size())))
         return text;
@@ -750,7 +776,7 @@ string strleft(string text, int n)
     return ret;
 }
 
-string strright(string text, int n)
+string strright(const string &text, int n)
 {
     if ((n >= int(text.size())) || (n*-1 >= int(text.size())))
         return text;
@@ -760,7 +786,7 @@ string strright(string text, int n)
     return ret;
 }
 
-string strmid(string text, int start, int len)
+string strmid(const string &text, int start, int len)
 {
     string ret;
     if (start > int(text.size())) return ret;
@@ -770,14 +796,14 @@ string strmid(string text, int start, int len)
     return ret;
 }
 
-string strrep(string text, int rep)
+string strrep(const string &text, int rep)
 {
     string ret;
     for (int x = 1; x <= rep; x++) ret.append(text);
     return ret;
 }
 
-string readini(string loc, string section, string item, int n)
+string readini(const string &loc, const string &section, const string &item, int n)
 {
     ifstream file (loc.c_str());
     string line, ret;
@@ -1162,7 +1188,7 @@ int iini_name(fstream &file, string section, string n, int r = 1)
     return 0;
 }
 */
-int iini_name(fstream &file, string section, string n)
+int iini_name(fstream &file, const string &section, const string &n)
 {
     if (!file.is_open()) return 0;
     string line;
@@ -1245,7 +1271,7 @@ string chr2str(char *a)
 {
     return a;
 }
-const char *str2chr(string str)
+const char *str2chr(const string &str)
 {
      return str.c_str();
 }

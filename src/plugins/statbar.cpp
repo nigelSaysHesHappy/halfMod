@@ -12,7 +12,7 @@
 #include <sys/vtimes.h>
 using namespace std;
 
-#define VERSION "v0.1.0"
+#define VERSION "v0.1.1"
 
 //static clock_t lastCPU, lastSysCPU, lastUserCPU;
 //static int numProcessors;
@@ -246,7 +246,8 @@ int comStatBar(hmHandle &handle, const hmPlayer &client, string args[], int argc
     if (args[1] == "on")
     {
         enabled = true;
-        if (handle.findTimer("update").name == "update")
+        hmTimer foo;
+        if (handle.findTimer("update",foo))
             handle.triggerTimer("update");
         else
             handle.createTimer("update",updateTime,"popStatBar","");

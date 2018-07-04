@@ -1,5 +1,9 @@
 Commit: Current  
 
+Fixed a few compile errors and updated a few plugins to conform to new methods.
+
+Commit: 022b1e5  
+
 API Changes:
 + Updated `mcVerInt()` to properly support pre-release snapshot version numbers.
 + Plugins now link the unload event function dynamically. Allows more control, specifically with extensions.
