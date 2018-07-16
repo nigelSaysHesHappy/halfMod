@@ -1,5 +1,9 @@
 Commit: Current  
 
+Small revert to fix newbug  
+
+Commit: 2b86084  
+
 Added some color output to `hm_info` and `hm_cvarinfo`.  
 
 Commit: 544b9fb  

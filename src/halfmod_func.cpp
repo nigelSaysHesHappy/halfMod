@@ -1130,9 +1130,9 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, const string &caller
                         hmReplyToClient(caller,"    Author : " + temp.author);
                         hmReplyToClient(caller,"    Desc   : " + temp.description);
                         hmReplyToClient(caller,"    Version: " + temp.version);
-                        if (hmIsPlayerOnline(caller))
+                        /*if (hmIsPlayerOnline(caller))
                             hmSendRaw("tellraw " + caller + " [{\"text\",\"[HM]    Url    : \"},{\"text\",\"" + temp.url + "\",\"clickEvent\":{\"action\":\"open_url\",\"value\":\"" + temp.url + "\"}}]");
-                        else
+                        else*/
                             hmReplyToClient(caller,"    Url    : " + temp.url);
                         hmReplyToClient(caller,data2str("    %i registered command(s).",it->totalCmds()));
                         hmReplyToClient(caller,data2str("    %i registered convar(s).",it->totalCvars()));
@@ -1289,9 +1289,9 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, const string &caller
                         hmReplyToClient(caller,"    Author : " + temp.author);
                         hmReplyToClient(caller,"    Desc   : " + temp.description);
                         hmReplyToClient(caller,"    Version: " + temp.version);
-                        if (hmIsPlayerOnline(caller))
+                        /*if (hmIsPlayerOnline(caller))
                             hmSendRaw("tellraw " + caller + " [{\"text\":\"[HM]    Url    : \"},{\"text\":\"" + temp.url + "\",\"clickEvent\":{\"action\":\"open_url\",\"value\":\"" + temp.url + "\"}}]");
-                        else
+                        else*/
                             hmReplyToClient(caller,"    Url    : " + temp.url);
                         hmReplyToClient(caller,data2str("    %i registered convar(s).",it->totalCvars()));
                         hmReplyToClient(caller,data2str("    %lu registered hook(s).",it->hooks.size()));
