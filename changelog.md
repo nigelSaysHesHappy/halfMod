@@ -1,5 +1,10 @@
 Commit: Current  
 
+Fixed bug that required previous revert.  
+Fixed small bug with the `urlchat` plugin.  
+
+Commit: 62db81f  
+
 Smaller bug fix  
 
 Commit: d9bd253  

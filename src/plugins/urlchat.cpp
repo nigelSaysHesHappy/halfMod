@@ -6,7 +6,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.5"
+#define VERSION "v0.1.6"
 
 void generateScript();
 void* urlLookup(void *vrl);
@@ -47,6 +47,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
             (*addConfigButtonCallback)("toggleUrlChat","Toggle URL Chat",FLAG_CVAR,&toggleButton);
         }
     }
+    remove("./halfMod/plugins/url.out");
     generateScript();
     return 0;
 }
