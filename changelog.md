@@ -1,6 +1,10 @@
 Commit: Current  
 
-Small revert to fix newbug  
+Smaller bug fix  
+
+Commit: d9bd253  
+
+Small revert to fix new bug  
 
 Commit: 2b86084  
 

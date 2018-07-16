@@ -1551,7 +1551,8 @@ int internalCvarInfo(hmGlobal &global, const string &caller, string args[], int 
         {
             if (outTellraw)
                 hmSendRaw("tellraw " + caller + " " + *it);
-            hmReplyToClient(caller,*it);
+            else
+                hmReplyToClient(caller,*it);
             if (start == stop)
                 break;
             start++;
