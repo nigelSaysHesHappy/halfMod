@@ -12,7 +12,7 @@ fi
 
 let "hmEngineBuild++"
 echo "hmEngineBuild=${hmEngineBuild}">.hmEngineBuildNo.sh
-echo "#define VERSION \"halfMod v0.1.5-build${hmEngineBuild}\"">include/.hmEngineBuild.h
+echo "#define VERSION \"halfMod v0.1.6-build${hmEngineBuild}\"">include/.hmEngineBuild.h
 
 err=0
 
@@ -38,6 +38,6 @@ done
 if [[ $? != 0 ]]; then
 	let "hmEngineBuild--"
 	echo "hmEngineBuild=${hmEngineBuild}">.hmEngineBuildNo.sh
-	echo "#define VERSION \"halfMod v0.1.5-build${hmEngineBuild}\"">include/.hmEngineBuild.h
+	echo "#define VERSION \"halfMod v0.1.6-build${hmEngineBuild}\"">include/.hmEngineBuild.h
 fi
 

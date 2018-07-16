@@ -3,7 +3,7 @@
 #include <fstream>
 using namespace std;
 
-#define VERSION "v0.2.5"
+#define VERSION "v0.2.6"
 
 bool enabled = false;
 long interval = 1000;
@@ -229,10 +229,10 @@ int discoTime(hmHandle &handle, string args)
     for (auto it = readyPlayers.begin(), ite = readyPlayers.end();it != ite;++it)
     {
         randColor = to_string(int(randint(0,1932928) * 1111 % 16777215));
-        hmSendRaw("replaceitem entity " + *it + " armor.feet minecraft:leather_boots{ench:[{lvl:1s,id:10s},{lvl:1s,id:71s}],display:{Lore:[\"Disco!\"],color:" + randColor + "}}");
-        hmSendRaw("replaceitem entity " + *it + " armor.legs minecraft:leather_leggings{ench:[{lvl:1s,id:10s},{lvl:1s,id:71s}],display:{Lore:[\"Disco!\"],color:" + randColor + "}}");
-        hmSendRaw("replaceitem entity " + *it + " armor.chest minecraft:leather_chestplate{ench:[{lvl:1s,id:10s},{lvl:1s,id:71s}],display:{Lore:[\"Disco!\"],color:" + randColor + "}}");
-        hmSendRaw("replaceitem entity " + *it + " armor.head minecraft:leather_helmet{ench:[{lvl:1s,id:10s},{lvl:1s,id:71s}],display:{Lore:[\"Disco!\"],color:" + randColor + "}}");
+        hmSendRaw("replaceitem entity " + *it + " armor.feet minecraft:leather_boots{Enchantments:[{lvl:1s,id:\"minecraft:binding_curse\"},{lvl:1s,id:\"minecraft:vanishing_curse\"}],display:{Lore:[\"Disco!\"],color:" + randColor + "}}");
+        hmSendRaw("replaceitem entity " + *it + " armor.legs minecraft:leather_leggings{Enchantments:[{lvl:1s,id:\"minecraft:binding_curse\"},{lvl:1s,id:\"minecraft:vanishing_curse\"}],display:{Lore:[\"Disco!\"],color:" + randColor + "}}");
+        hmSendRaw("replaceitem entity " + *it + " armor.chest minecraft:leather_chestplate{Enchantments:[{lvl:1s,id:\"minecraft:binding_curse\"},{lvl:1s,id:\"minecraft:vanishing_curse\"}],display:{Lore:[\"Disco!\"],color:" + randColor + "}}");
+        hmSendRaw("replaceitem entity " + *it + " armor.head minecraft:leather_helmet{Enchantments:[{lvl:1s,id:\"minecraft:binding_curse\"},{lvl:1s,id:\"minecraft:vanishing_curse\"}],display:{Lore:[\"Disco!\"],color:" + randColor + "}}");
     }
     if (oldInt != interval)
     {

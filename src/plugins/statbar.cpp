@@ -225,7 +225,7 @@ void onPluginStop(hmHandle &handle)
 
 int onWorldInit(hmHandle &handle, smatch args)
 {
-    hmSendRaw("scoreboard objectives remove hmStatBar\nscoreboard objectives add hmStatBar dummy Server Statistics");
+    hmSendRaw("scoreboard objectives remove hmStatBar\nscoreboard objectives add hmStatBar dummy \"Server Statistics\"");
     return 0;
 }
 

@@ -1,5 +1,5 @@
 7 ^\[([0-9]{2}:){2}[0-9]{2}\] \[Server thread/INFO\]: Entity data updated to: \{.*Tags:\["handled"\].*\}$
-7 ^\[([0-9]{2}:){2}[0-9]{2}\] \[Server thread/INFO\]: (Reset|Set) score( of)? hmStatBar (of|for) player
+7 ^\[([0-9]{2}:){2}[0-9]{2}\] \[Server thread/INFO\]: (Reset|Set) \[Server Statistics\]
 7 ^\s*(at |com\.mojang\.brigadier)
 1 ^::\[GLOBAL\]
 1 ^::\[PRINT\]

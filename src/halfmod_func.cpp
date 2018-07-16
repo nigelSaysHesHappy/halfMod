@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <array>
 #include "str_tok.h"
 #include "halfmod.h"
 #include "halfmod_func.h"
@@ -346,10 +347,70 @@ size_t findPlugins(const char *dir, vector<string> &paths)
     return paths.size();
 }
 
+#define REGPTRN_ALL          0
+#define REGPTRN_TIME         1
+#define REGPTRN_INFO         2
+#define REGPTRN_IGNORE       3
+#define REGPTRN_SAY          4
+#define REGPTRN_CHATCMD      5
+#define REGPTRN_FAKESAY      6
+#define REGPTRN_ACTION       7
+#define REGPTRN_CONNECT      8
+#define REGPTRN_GAMERULE     9
+#define REGPTRN_SERVERSTART  10
+#define REGPTRN_LEVELPREP    11
+#define REGPTRN_LEVELINIT    12
+#define REGPTRN_LIST         13
+#define REGPTRN_JOIN         14
+#define REGPTRN_DISCONNECT   15
+#define REGPTRN_LEFT         16
+#define REGPTRN_ADVANCE      17
+#define REGPTRN_GOAL         18
+#define REGPTRN_CHALLENGE    19
+#define REGPTRN_DEATH        20
+#define REGPTRN_WARN         21
+#define REGPTRN_SHUTDOWN     22
+#define REGPTRN_AUTH         23
+#define REGPTRN_NOEXEC       24
+#define REGPTRN_GLOBAL       25
+#define REGPTRN_PRINT        26
+#define REGPTRN_MAX          27
+
 // in charge of populating the hmGlobal struct and controlling console output
 // I said f it and made it handle everything.
 int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
 {
+    static const array<regex,REGPTRN_MAX> ptrns =
+    {
+        regex(".*"),
+        regex("\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] (.+)"),
+        regex("\\[Server thread/INFO\\]: (.*)"),
+        regex("[^\\s\\[\\]<>]+ (did not match|has the following entity data:|has [0-9]+ experience|has [0-9]+ \\[.*?\\]|moved too quickly!|moved wrongly!).*"),
+        regex("<(\\S+?)> (.*)"),
+        regex("<(\\S+?)> !(\\S+) ?(.*)"),
+        regex("\\[(\\S+?)\\] (.*)"),
+        regex("\\* (\\S+) (.+)"),
+        regex("([^\\s\\[]+)\\[/([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}):([0-9]{1,})\\] logged in.*"),
+        regex("\\[?[^ ]* ?Gamerule ([^ ]+) is (now|currently) set to: (.+?)\\]?$"),
+        regex("Starting minecraft server version (.+)"),
+        regex("Preparing level (.+)"),
+        regex("Done \\((.*)\\)!.*"),
+        regex("There are ([0-9]{1,})(/| of a max )([0-9]{1,}) players online:\\s*(.*)"),
+        regex("(\\S+) joined the game"),
+        regex("(\\S+) lost connection: (.*)"),
+        regex("(\\S+) left the game"),
+        regex("(\\S+) has made the advancement (.*)"),
+        regex("(\\S+) has reached the goal (.*)"),
+        regex("(\\S+) has completed the challenge (.*)"),
+        regex("(\\S+) (.+)"),
+        regex("\\[Server thread/WARN\\]: (.*)"),
+        regex("\\[Server Shutdown Thread/INFO\\]: (.*)"),
+        regex("\\[User Authenticator #([0-9]{1,})/INFO\\]: UUID of player (\\S+) is (.*)"),
+        regex("\\[Server thread/ERROR\\]: Couldn't execute command for (\\S+): (\\S+) ?(.*)"),
+        regex("::\\[GLOBAL\\] (.+)"),
+        regex("::\\[PRINT\\] (.+)")
+    };
+        
     static bool catchLine = false;
     if (catchLine == true)
     {
@@ -393,11 +454,10 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
             }
         }
     }
-    regex ptrn (".*");
     if ((blocking & HM_BLOCK_OUTPUT) == 0)
     {
         cout<<thread<<endl;
-        if (regex_match(thread,ml,ptrn))
+        if (regex_match(thread,ml,ptrns[REGPTRN_ALL]))
             processEvent(plugins,HM_ONCONSOLERECV,ml);
     }
     if ((blocking & HM_BLOCK_HOOK) == 0)
@@ -410,28 +470,23 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
     bool isRemote = false;
     if (gettok(thread,1," ") == "[99:99:99]")
         isRemote = true;
-    ptrn = "\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] (.+)";
-    if (regex_match(thread,ml,ptrn))
+    if (regex_match(thread,ml,ptrns[REGPTRN_TIME]))
     {
         thread = ml[1].str();
-        ptrn = "\\[Server thread/INFO\\]: (.*)";
-        if (regex_match(thread,ml,ptrn))
+        if (regex_match(thread,ml,ptrns[REGPTRN_INFO]))
         {
             if (processEvent(plugins,HM_ONINFO,ml))
                 return 1;
             thread = ml[1].str();
-            ptrn = "[^\\s\\[\\]<>]+ (did not match|has the following entity data:|has [0-9]+ experience|has [0-9]+ \\[.*?\\]|moved too quickly!|moved wrongly!).*";
-            if (regex_match(thread,ptrn))
+            if (regex_match(thread,ptrns[REGPTRN_IGNORE]))
                 return 0;
-            ptrn = "<(\\S+?)> (.*)";
-            if (regex_match(thread,ml,ptrn))
+            if (regex_match(thread,ml,ptrns[REGPTRN_SAY]))
             {
                 //if ((ml[1].str() == "#SERVER") || (hmIsPlayerOnline(ml[1].str())))
                 if ((isRemote) || (hmIsPlayerOnline(ml[1].str())))
                 {
                     smatch ml1 = ml;
-                    ptrn = "<(\\S+?)> !(\\S+) ?(.*)";
-                    if (regex_match(thread,ml,ptrn))
+                    if (regex_match(thread,ml,ptrns[REGPTRN_CHATCMD]))
                     {
                             if (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str()))
                                 return 1;
@@ -444,24 +499,21 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
             }
             else
             {
-                ptrn = "\\[(\\S+?)\\] (.*)";
-                if (regex_match(thread,ml,ptrn))
+                if (regex_match(thread,ml,ptrns[REGPTRN_FAKESAY]))
                 {
                     if (processEvent(plugins,HM_ONFAKETEXT,ml))
                         return 1;
                 }
                 else
                 {
-                    ptrn = "\\* (\\S+) (.+)";
-                    if (regex_match(thread,ml,ptrn))
+                    if (regex_match(thread,ml,ptrns[REGPTRN_ACTION]))
                     {
                         if (processEvent(plugins,HM_ONACTION,ml))
                             return 1;
                     }
                     else
                     {
-                        ptrn = "([^\\s\\[]+)\\[/([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}):([0-9]{1,})\\] logged in.*";
-                        if (regex_match(thread,ml,ptrn))
+                        if (regex_match(thread,ml,ptrns[REGPTRN_CONNECT]))
                         {
                             hmWritePlayerDat(ml[1].str(),"ip=" + ml[2].str() + "\n" + data2str("join=%li",time(NULL)),"ip=join");
                             if (processEvent(plugins,HM_ONCONNECT,ml))
@@ -473,8 +525,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
 [18:12:46] [Server thread/INFO]: Gamerule randomTickSpeed is currently set to: 3
 gamerule randomTickSpeed 4
 [18:12:56] [Server thread/INFO]: Gamerule randomTickSpeed is now set to: 4*/
-                            ptrn = "\\[?[^ ]* ?Gamerule ([^ ]+) is (now|currently) set to: (.+?)\\]?$";
-                            if (regex_match(thread,ml,ptrn))
+                            if (regex_match(thread,ml,ptrns[REGPTRN_GAMERULE]))
                             {
                                 hmConVar *cvar = hmFindConVar(ml[1].str());
                                 if ((cvar != nullptr) && ((cvar->flags & FCVAR_GAMERULE) > 0))
@@ -493,21 +544,18 @@ gamerule randomTickSpeed 4
                             {*/
                             else
                             {
-                                ptrn = "Starting minecraft server version (.+)";
-                                if (regex_match(thread,ml,ptrn))
+                                if (regex_match(thread,ml,ptrns[REGPTRN_SERVERSTART]))
                                 {
                                     info.mcVer = ml[1].str();
                                     info.players.clear();
                                 }
                                 else
                                 {
-                                    ptrn = "Preparing level (.+)";
-                                    if (regex_match(thread,ml,ptrn))
+                                    if (regex_match(thread,ml,ptrns[REGPTRN_LEVELPREP]))
                                         info.world = ml[1].str();
                                     else
                                     {
-                                        ptrn = "Done \\((.*)\\)!.*";
-                                        if (regex_match(thread,ml,ptrn))
+                                        if (regex_match(thread,ml,ptrns[REGPTRN_LEVELINIT]))
                                         {
                                             hmSendRaw("list");
                                             if (info.mcVer == "")
@@ -526,8 +574,7 @@ gamerule randomTickSpeed 4
                                         }
                                         else
                                         {
-                                            ptrn = "There are ([0-9]{1,})(/| of a max )([0-9]{1,}) players online:\\s*(.*)";
-                                            if (regex_match(thread,ml,ptrn))
+                                            if (regex_match(thread,ml,ptrns[REGPTRN_LIST]))
                                             {
                                                 info.players.clear();
                                                 if (stoi(ml[1].str()) > 0)
@@ -545,8 +592,7 @@ gamerule randomTickSpeed 4
                                             }
                                             else
                                             {
-                                                ptrn = "(\\S+) joined the game";
-                                                if (regex_match(thread,ml,ptrn))
+                                                if (regex_match(thread,ml,ptrns[REGPTRN_JOIN]))
                                                 {
                                                     loadPlayerData(info,ml[1].str());
                                                     if (processEvent(plugins,HM_ONJOIN,ml))
@@ -567,8 +613,7 @@ gamerule randomTickSpeed 4
                                                     } // no longer needed as of 18w02a
                                                     else */if (hmIsPlayerOnline(gettok(thread,1," ")))
                                                     {
-                                                        ptrn = "(\\S+) lost connection: (.*)";
-                                                        if (regex_match(thread,ml,ptrn))
+                                                        if (regex_match(thread,ml,ptrns[REGPTRN_DISCONNECT]))
                                                         {
                                                             hmWritePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit=quitmsg");
                                                             if (processEvent(plugins,HM_ONDISCONNECT,ml))
@@ -576,8 +621,7 @@ gamerule randomTickSpeed 4
                                                         }
                                                         else
                                                         {
-                                                            ptrn = "(\\S+) left the game";
-                                                            if (regex_match(thread,ml,ptrn))
+                                                            if (regex_match(thread,ml,ptrns[REGPTRN_LEFT]))
                                                             {
                                                                 /*for (auto it = info.players.begin();it != info.players.end();)
                                                                 {
@@ -592,32 +636,28 @@ gamerule randomTickSpeed 4
                                                             }
                                                             else
                                                             {
-                                                                ptrn = "(\\S+) has made the advancement (.*)";
-                                                                if (regex_match(thread,ml,ptrn))
+                                                                if (regex_match(thread,ml,ptrns[REGPTRN_ADVANCE]))
                                                                 {
                                                                     if (processEvent(plugins,HM_ONADVANCE,ml))
                                                                         return 1;
                                                                 }
                                                                 else
                                                                 {
-                                                                    ptrn = "(\\S+) has reached the goal (.*)";
-                                                                    if (regex_match(thread,ml,ptrn))
+                                                                    if (regex_match(thread,ml,ptrns[REGPTRN_GOAL]))
                                                                     {
                                                                         if (processEvent(plugins,HM_ONGOAL,ml))
                                                                             return 1;
                                                                     }
                                                                     else
                                                                     {
-                                                                        ptrn = "(\\S+) has completed the challenge (.*)";
-                                                                        if (regex_match(thread,ml,ptrn))
+                                                                        if (regex_match(thread,ml,ptrns[REGPTRN_CHALLENGE]))
                                                                         {
                                                                             if (processEvent(plugins,HM_ONCHALLENGE,ml))
                                                                                 return 1;
                                                                         }
                                                                         else
                                                                         {
-                                                                            ptrn = "(\\S+) (.+)";
-                                                                            if (regex_match(thread,ml,ptrn))
+                                                                            if (regex_match(thread,ml,ptrns[REGPTRN_DEATH]))
                                                                             {
                                                                                 string client = stripFormat(lower(ml[1].str())), msg = ml[2].str();
                                                                                 time_t cTime = time(NULL);
@@ -660,24 +700,21 @@ gamerule randomTickSpeed 4
         }
         else
         {
-            ptrn = "\\[Server thread/WARN\\]: (.*)";
-            if (regex_match(thread,ml,ptrn))
+            if (regex_match(thread,ml,ptrns[REGPTRN_WARN]))
             {
                 if (processEvent(plugins,HM_ONWARN,ml))
                     return 1;
             }
             else
             {
-                ptrn = "\\[Server Shutdown Thread/INFO\\]: (.*)";
-                if (regex_match(thread,ml,ptrn))
+                if (regex_match(thread,ml,ptrns[REGPTRN_SHUTDOWN]))
                 {
                     if (processEvent(plugins,HM_ONSHUTDOWN,ml))
                         return 1;
                 }
                 else
                 {
-                    ptrn = "\\[User Authenticator #([0-9]{1,})/INFO\\]: UUID of player (\\S+) is (.*)";
-                    if (regex_match(thread,ml,ptrn))
+                    if (regex_match(thread,ml,ptrns[REGPTRN_AUTH]))
                     {
                         hmWritePlayerDat(ml[2].str(),"uuid=" + ml[3].str(),"uuid",true);
                         if (processEvent(plugins,HM_ONAUTH,ml))
@@ -685,8 +722,7 @@ gamerule randomTickSpeed 4
                     }
                     else
                     {
-                        ptrn = "\\[Server thread/ERROR\\]: Couldn't execute command for (\\S+): (\\S+) ?(.*)";
-                        if (regex_match(thread,ml,ptrn))
+                        if (regex_match(thread,ml,ptrns[REGPTRN_NOEXEC]))
                         {
                             if (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str(),false))
                                 return 1;
@@ -698,16 +734,14 @@ gamerule randomTickSpeed 4
     }
     else
     {
-        ptrn = "::\\[GLOBAL\\] (.+)";
-        if (regex_match(thread,ml,ptrn))
+        if (regex_match(thread,ml,ptrns[REGPTRN_GLOBAL]))
         {
             if (processEvent(plugins,HM_ONGLOBALMSG,ml))
                 return 1;
         }
         else
         {
-            ptrn = "::\\[PRINT\\] (.+)";
-            if (regex_match(thread,ml,ptrn))
+            if (regex_match(thread,ml,ptrns[REGPTRN_PRINT]))
             {
                 if (processEvent(plugins,HM_ONPRINTMSG,ml))
                     return 1;

@@ -12,7 +12,7 @@ fi
 
 let "hmAPIBuild++"
 echo "hmAPIBuild=${hmAPIBuild}">.hmAPIBuildNo.sh
-echo "#define API_VERSION \"v0.2.6-build${hmAPIBuild}\"">include/.hmAPIBuild.h
+echo "#define API_VERSION \"v0.2.7-build${hmAPIBuild}\"">include/.hmAPIBuild.h
 
 #g++ -std=c++11 -stdlib=libc++ -I "include" -o o/halfmod.o -c api/halfmod.cpp -ldl -fPIC
 /usr/bin/clang++-3.8 -std=c++11 -stdlib=libc++ -I "include" -o o/halfmod.o -c api/halfmod.cpp -ldl -fPIC
@@ -21,5 +21,5 @@ echo "#define API_VERSION \"v0.2.6-build${hmAPIBuild}\"">include/.hmAPIBuild.h
 if [[ $? != 0 ]]; then
 	let "hmAPIBuild--"
 	echo "hmAPIBuild=${hmAPIBuild}">.hmAPIBuildNo.sh
-	echo "#define API_VERSION \"v0.2.6-build${hmAPIBuild}\"">include/.hmAPIBuild.h
+	echo "#define API_VERSION \"v0.2.7-build${hmAPIBuild}\"">include/.hmAPIBuild.h
 fi

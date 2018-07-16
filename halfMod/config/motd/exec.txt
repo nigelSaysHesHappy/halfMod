@@ -1,4 +1,4 @@
-# Every line in this file except this one will be ran when a player joins
+# Every line in this file that does not start with a `#` will be ran when a player joins
 # Identifiers are processed before execution, so to run a command as a player, you can use:
 #   execute as %me run say I love you guys!
 #   hm_rocket %me

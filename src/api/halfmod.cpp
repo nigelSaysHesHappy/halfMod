@@ -1076,10 +1076,14 @@ void hmSendRaw(string raw, bool output)
         hmOutDebug("Error: No connection to the halfShell server . . .");
 }
 
-void hmServerCommand(const string &raw, bool output)
+void hmServerCommand(string raw, bool output)
 {
     if (raw.size() > 0)
+    {
+        std::regex ptrn ("\"");
+        raw = std::regex_replace(raw,ptrn,"\\\"");
         hmSendRaw("hs relay " + raw,output);
+    }
 }
 
 void hmReplyToClient(const string &client, const string &message)

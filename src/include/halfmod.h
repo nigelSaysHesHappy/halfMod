@@ -472,7 +472,7 @@ void mkdirIf(const char *path);
 std::string stripFormat(const std::string &str);
 hmGlobal *recallGlobal(hmGlobal *global);
 void hmSendRaw(std::string raw, bool output = true);
-void hmServerCommand(const std::string &raw, bool output = true);
+void hmServerCommand(std::string raw, bool output = true);
 void hmReplyToClient(const std::string &client, const std::string &message);
 void hmReplyToClient(const hmPlayer &client, const std::string &message);
 void hmSendCommandFeedback(const std::string &client, const std::string &message);

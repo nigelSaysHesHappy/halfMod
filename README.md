@@ -22,7 +22,10 @@ halfMod also allows custom event triggers using regex patterns, registered `!com
 # Dependencies
 Unfortunately halfShell and halfMod are both limited to supported distros of `Linux`.
 
-`g++ 4.9.2` or higher is required to compile/run.
+`clang++-3.8` or higher is required to compile/run.  
+If `/usr/bin/clang++-3.8` does not exist, you will need to create a link there that points to your clang binary.
+
+`libc++-dev` package is also required.
 
 `screen` is a required package to manage the background processes.
 
@@ -32,7 +35,8 @@ All debian based distros work the best.
 
 `RedHat` distros can require a little more work, but should also work. With the exception of `CentOS`.
 
-`CentOS` is a free unlicensed distro of `RedHat`, because of this, it can be difficult to install `g++ 4.9.2`. It can be done, but with much headache, I highly discourage it.
+~~`CentOS` is a free unlicensed distro of `RedHat`, because of this, it can be difficult to install `g++ 4.9.2`. It can be done, but with much headache, I highly discourage it.~~
+`CentOS` has not been tested since switching to clang.
 
 No other distros have been tested, but if `g++ 4.9.2` and `screen` are installed, then it should work just fine.
 
@@ -40,7 +44,8 @@ No other distros have been tested, but if `g++ 4.9.2` and `screen` are installed
 Installation is very easy. Clone the rep and type the following commands into the terminal:
 ```
 cd src/
-./buildall --plugins
+chmod +x buildall.sh
+./buildall.sh --plugins
 ```
 
 # Running

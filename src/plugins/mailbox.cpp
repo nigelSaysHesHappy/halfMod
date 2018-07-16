@@ -9,7 +9,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.2.3"
+#define VERSION "v0.2.4"
 
 string amtTime(/*love you*/long times);
 
@@ -503,7 +503,7 @@ int sendItem(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
         // by using the same name for the pattern, we can unhook them both at the same time
         handle.hookPattern(client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: .+ has the following entity data: (\\{.*Tags: \\[\"hmMBItem(" + target + ")\".*\\})$","sendItemCheck");
         handle.hookPattern(client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/ERROR\\]: Couldn't execute command for Server:\\s+data get entity @e\\[tag=hmMBItem" + target + ",limit=1\\]$","sendItemFail");
-        hmSendRaw("execute at " + client + " run data merge entity @e[type=minecraft:item,distance=..10,limit=1,sort=nearest,nbt={Thrower:\"" + client + "\"}] {Owner:\"" + target + "\",PickupDelay:10s,Tags:[\"hmMBItem" + target + "\",\"killme\"]}\n" +
+        hmSendRaw("execute at " + client + " run data merge entity @e[type=minecraft:item,distance=..10,limit=1,sort=nearest] {PickupDelay:10s,Tags:[\"hmMBItem" + target + "\",\"killme\"]}\n" +
                   "data get entity @e[tag=hmMBItem" + target + ",limit=1]");
     }
     else

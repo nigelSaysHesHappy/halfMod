@@ -7,7 +7,7 @@
 #include "nbtmap.h"
 using namespace std;
 
-#define VERSION "v0.0.8"
+#define VERSION "v0.0.9"
 
 string amtTime(/*love you*/long times);
 
@@ -98,7 +98,8 @@ int whoisPlayer(hmHandle &handle, const hmPlayer &caller, string args[], int arg
             }
 	        time_t cTime = time(NULL);
 	        hmReplyToClient(caller,"Whois " + target.name + ":");
-            hmReplyToClient(caller,"  Last IP: " + target.ip);
+	        if ((caller.flags & FLAG_ROOT) == FLAG_ROOT)
+                hmReplyToClient(caller,"  Last IP: " + target.ip);
             hmReplyToClient(caller,"  UUID: " + target.uuid);
             hmReplyToClient(caller,"  Access: " + access);
             hmReplyToClient(caller,"  Last Online: " + amtTime(cTime-target.quit) + " ago. " + nospace(gettok(target.quitmsg,-1,":")));
@@ -197,7 +198,8 @@ int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
     }
     time_t cTime = time(NULL);
     hmReplyToClient(caller,"Whois " + target->name + ":");
-    hmReplyToClient(caller,"  IP: " + target->ip);
+    if ((hmGetPlayerFlags(caller) & FLAG_ROOT) == FLAG_ROOT)
+        hmReplyToClient(caller,"  IP: " + target->ip);
     hmReplyToClient(caller,"  UUID: " + target->uuid);
     hmReplyToClient(caller,"  Access: " + access);
     hmReplyToClient(caller,"  Gamemode: " + gm);

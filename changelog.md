@@ -1,6 +1,24 @@
 Commit: Current  
 
-Fixed a few compile errors and updated a few plugins to conform to new methods.
+Fixed a nasty bug with the `cvar_rules` plugin causing an aggressive halfShell launch loop.
+Minor halfMod engine optimizations.  
+
+Plugins changes:
++ `baseplayerinfo`:
++ + Now the `hm_whois` command will only output player IPs to admins that have root access.
++ `mailbox`:
++ + Updated `hm_senditem` for new Item nbt changes.
++ `disco`:
++ + Updated enchantments on armor for new `Enchantments` tag.
++ `cvar_rules`:
++ + Now properly handles empty lines and `#comments` in `./halfMod/config/gamerules.conf`.
++ `statbar`:
++ + Updated for halfMod API changes.
++ + Small bug fixes.  
+
+Commit: a442fcd  
+
+Fixed a few compile errors and updated a few plugins to conform to new methods.  
 
 Commit: 022b1e5  
 

@@ -3,9 +3,12 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.2"
+#define VERSION		"v0.0.3"
 
-void loadCvars(hmHandle &handle);
+int lateLoadCvars(hmHandle &handle, hmHook hook, smatch args);
+bool loadCvars(hmHandle &handle);
+
+bool cvarRulesLoaded;
 
 extern "C" {
 
@@ -18,19 +21,32 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
                         VERSION,
                         "http://gamerules.justca.me/in/your/plugins"    );
     if (global->maxPlayers > 0)
-        loadCvars(handle);
+        cvarRulesLoaded = loadCvars(handle);
+    else
+    {
+        handle.hookPattern("cvarLoad","\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: There are ([0-9]{1,})(/| of a max )([0-9]{1,}) players online:\\s*(.*)",&lateLoadCvars);
+        cvarRulesLoaded = false;
+    }
     return 0;
 }
 
 int onWorldInit(hmHandle &handle, smatch args)
 {
-    loadCvars(handle);
+    cvarRulesLoaded = loadCvars(handle);
     return 0;
 }
 
 }
 
-void loadCvars(hmHandle &handle)
+int lateLoadCvars(hmHandle &handle, hmHook hook, smatch args)
+{
+    handle.unhookPattern(hook.name);
+    if (!cvarRulesLoaded)
+        cvarRulesLoaded = loadCvars(handle);
+    return 0;
+}
+
+bool loadCvars(hmHandle &handle)
 {
     ifstream file ("./halfMod/config/gamerules.conf");
     if (file.is_open())
@@ -40,8 +56,15 @@ void loadCvars(hmHandle &handle)
         bool hMin, hMax;
         float min, max;
         int i, j;
+        regex comment ("\\s*#.*");
+        regex white0 ("$\\s+");
+        regex white1 ("\\s+");
         while (getline(file,line))
         {
+            if ((line.size() < 1) || (regex_match(line,comment)))
+                continue;
+            line = regex_replace(line,white0,"");
+            line = regex_replace(line,white1," ");
             name = getqtok(line,1," ");
             value = getqtok(name,2,"=");
             name = getqtok(name,1,"=");
@@ -57,13 +80,21 @@ void loadCvars(hmHandle &handle)
                     desc = getqtok(temp,2,"=");
                 else if (temp1 == "min")
                 {
-                    hMin = true;
-                    min = stof(getqtok(temp,2,"="));
+                    temp1 = getqtok(temp,2,"=");
+                    if (stringisnum(temp1))
+                    {
+                        hMin = true;
+                        min = stoi(temp1);
+                    }
                 }
                 else if (temp1 == "max")
                 {
-                    hMax = true;
-                    max = stof(getqtok(temp,2,"="));
+                    temp1 = getqtok(temp,2,"=");
+                    if (stringisnum(temp1))
+                    {
+                        hMax = true;
+                        max = stoi(getqtok(temp,2,"="));
+                    }
                 }
                 else if (lower(temp) == "notify")
                     flags |= FCVAR_NOTIFY;
@@ -75,11 +106,14 @@ void loadCvars(hmHandle &handle)
             handle.createConVar(name,value,desc,flags,hMin,min,hMax,max);
             if ((flags & FCVAR_CONSTANT) > 0)
                 hmSendRaw("gamerule " + name + " " + value);
-            hmSendRaw("gamerule " + name);
+            else
+                hmSendRaw("gamerule " + name);
         }
         file.close();
+        return true;
     }
     else
         hmOutDebug("Error: Missing `./halfMod/config/gamerules.conf` file.");
+    return false;
 }
 
