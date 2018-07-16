@@ -1,5 +1,9 @@
 Commit: Current  
 
+Added some color output to `hm_info` and `hm_cvarinfo`.  
+
+Commit: 544b9fb  
+
 Fixed a nasty bug with the `cvar_rules` plugin causing an aggressive halfShell launch loop.
 Minor halfMod engine optimizations.  
 

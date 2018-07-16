@@ -1130,7 +1130,10 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, const string &caller
                         hmReplyToClient(caller,"    Author : " + temp.author);
                         hmReplyToClient(caller,"    Desc   : " + temp.description);
                         hmReplyToClient(caller,"    Version: " + temp.version);
-                        hmReplyToClient(caller,"    Url    : " + temp.url);
+                        if (hmIsPlayerOnline(caller))
+                            hmSendRaw("tellraw " + caller + " [{\"text\",\"[HM]    Url    : \"},{\"text\",\"" + temp.url + "\",\"clickEvent\":{\"action\":\"open_url\",\"value\":\"" + temp.url + "\"}}]");
+                        else
+                            hmReplyToClient(caller,"    Url    : " + temp.url);
                         hmReplyToClient(caller,data2str("    %i registered command(s).",it->totalCmds()));
                         hmReplyToClient(caller,data2str("    %i registered convar(s).",it->totalCvars()));
                         hmReplyToClient(caller,data2str("    %i registered event(s).",it->totalEvents()));
@@ -1286,7 +1289,10 @@ int internalHM(hmGlobal &global, vector<hmHandle> &plugins, const string &caller
                         hmReplyToClient(caller,"    Author : " + temp.author);
                         hmReplyToClient(caller,"    Desc   : " + temp.description);
                         hmReplyToClient(caller,"    Version: " + temp.version);
-                        hmReplyToClient(caller,"    Url    : " + temp.url);
+                        if (hmIsPlayerOnline(caller))
+                            hmSendRaw("tellraw " + caller + " [{\"text\":\"[HM]    Url    : \"},{\"text\":\"" + temp.url + "\",\"clickEvent\":{\"action\":\"open_url\",\"value\":\"" + temp.url + "\"}}]");
+                        else
+                            hmReplyToClient(caller,"    Url    : " + temp.url);
                         hmReplyToClient(caller,data2str("    %i registered convar(s).",it->totalCvars()));
                         hmReplyToClient(caller,data2str("    %lu registered hook(s).",it->hooks.size()));
                         hmReplyToClient(caller,data2str("    %lu running timer(s).",it->timers.size()));
@@ -1396,6 +1402,7 @@ int internalInfo(vector<hmHandle> &plugins, const string &caller, string args[],
         }
     }
     int n = -1;
+    bool outTellraw = hmIsPlayerOnline(caller);
     vector<string> list;
     string entry;
     if (plug < 0)
@@ -1409,7 +1416,10 @@ int internalInfo(vector<hmHandle> &plugins, const string &caller, string args[],
             }
             if ((cmdlist[i].flags == 0) || ((flags & cmdlist[i].flags) > 0))
             {
-                entry = cmdlist[i].cmd + " - " + cmdlist[i].desc;
+                if (outTellraw)
+                    entry = "[{\"text\":\"[HM] \"},{\"text\":\"" + cmdlist[i].cmd + "\",\"color\":\"gray\"},{\"text\":\" - \",\"color\":\"none\"},{\"text\":\"" + cmdlist[i].desc + "\",\"color\":\"dark_aqua\"}]";
+                else
+                    entry = cmdlist[i].cmd + " - " + cmdlist[i].desc;
                 list.push_back(entry);
             }
         }
@@ -1430,7 +1440,10 @@ int internalInfo(vector<hmHandle> &plugins, const string &caller, string args[],
                 }
                 if ((com->second.flag == 0) || ((flags & com->second.flag) > 0))
                 {
-                    entry = com->second.cmd + " - " + com->second.desc;
+                    if (outTellraw)
+                        entry = "[{\"text\":\"[HM] \"},{\"text\":\"" + com->second.cmd + "\",\"color\":\"gray\"},{\"text\":\" - \",\"color\":\"none\"},{\"text\":\"" + com->second.desc + "\",\"color\":\"dark_aqua\"}]";
+                    else
+                        entry = com->second.cmd + " - " + com->second.desc;
                     list.push_back(entry);
                 }
             }
@@ -1465,7 +1478,10 @@ int internalInfo(vector<hmHandle> &plugins, const string &caller, string args[],
             hmReplyToClient(caller,"Displaying page " + data2str("%i/%i:",page,pages));
         for (auto it = list.begin()+start, ite = list.end();it != ite;++it)
         {
-            hmReplyToClient(caller,*it);
+            if (outTellraw)
+                hmSendRaw("tellraw " + caller + " " + *it);
+            else
+                hmReplyToClient(caller,*it);
             if (start == stop)
                 break;
             start++;
@@ -1490,6 +1506,7 @@ int internalCvarInfo(hmGlobal &global, const string &caller, string args[], int 
         else
             criteria = args[1];
     }
+    bool outTellraw = hmIsPlayerOnline(caller);
     vector<string> list;
     string entry;
     for (auto it = global.conVars.begin(), ite = global.conVars.end();it != ite;++it)
@@ -1499,7 +1516,10 @@ int internalCvarInfo(hmGlobal &global, const string &caller, string args[], int 
             if ((!isin(it->second.getName(),criteria)) && (!isin(it->second.getDesc(),criteria)))
                 continue;
         }
-        entry = it->second.getName() + " (Default: " + it->second.getDefault() + ") - " + it->second.getDesc();
+        if (outTellraw)
+            entry = "[{\"text\":\"[HM] \"},{\"text\":\"" + it->second.getName() + "\",\"color\":\"gray\"},{\"text\":\" (Default: " + it->second.getDefault() + ")\",\"color\":\"gold\"},{\"text\":\" - \",\"color\":\"none\"},{\"text\":\"" + it->second.getDesc() + "\",\"color\":\"dark_aqua\"}]";
+        else
+            entry = it->second.getName() + " (Default: " + it->second.getDefault() + ") - " + it->second.getDesc();
         list.push_back(entry);
     }
     if (list.size() < 1)
@@ -1529,6 +1549,8 @@ int internalCvarInfo(hmGlobal &global, const string &caller, string args[], int 
             hmReplyToClient(caller,"Displaying page " + data2str("%i/%i:",page,pages));
         for (auto it = list.begin()+start, ite = list.end();it != ite;++it)
         {
+            if (outTellraw)
+                hmSendRaw("tellraw " + caller + " " + *it);
             hmReplyToClient(caller,*it);
             if (start == stop)
                 break;
