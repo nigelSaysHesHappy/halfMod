@@ -9,7 +9,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.2.4"
+#define VERSION "v0.2.5"
 
 string amtTime(/*love you*/long times);
 
@@ -587,9 +587,9 @@ int sendChest(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
         }
         // by using the same name for the pattern, we can unhook them both at the same time
         // [04:16:59] [Server thread/INFO]: No items were found on player nigathan
-        handle.hookPattern("hmMBChest " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: No items were found on player (" + client + ")$","sendChestFailIron");
+        handle.hookPattern("hmMBChest " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: No items were found on player (" + caller.name + ")$","sendChestFailIron");
         // [04:17:50] [Server thread/INFO]: Found 64 matching items on player nigathan
-        handle.hookPattern("hmMBChest " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Found ([0-9]+) matching items on player (" + client + ")$","sendChestIron");
+        handle.hookPattern("hmMBChest " + client + " " + target,"^\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] \\[Server thread/INFO\\]: Found ([0-9]+) matching items on player (" + caller.name + ")$","sendChestIron");
         hmSendRaw("clear " + client + " minecraft:iron_ingot 0");
 //                 execute at " + client + " run data get block ~ ~-0.5 ~");
     }
