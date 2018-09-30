@@ -67,7 +67,7 @@ fi
 echo "#!/bin/bash" >launchmc
 echo "export LD_PRELOAD=\"${PWD}/halfshell\" && java -Xms${mem_starting} -Xmx${mem_total} -jar minecraft_server.${mcver}.jar nogui" >>launchmc
 if $autorestart; then
-    echo "./server.sh $origswitch --restart" >>launchmc
+    echo "export LD_PRELOAD=\"\" && ./server.sh $origswitch --restart" >>launchmc
 fi
 
 if ! $restart; then
@@ -93,11 +93,15 @@ fi
 if screen -ls | grep "${hmScreen}">/dev/null; then
 	echo "halfMod already running . . ."
 	echo "Launching halfShell + Minecraft $mcver . . ."
-	screen -A -m -d -S ${hsScreen} /bin/bash launchmc
+	if $restart; then
+		/bin/bash launchmc
+	else
+		screen -A -m -d -S ${hsScreen} /bin/bash launchmc
+	fi
 else
 	echo "Launching halfMod . . ."
 	if $autorestart; then
-	    screen -A -m -d -S ${hmScreen} /bin/bash halfHold.sh "${hsswitch[@]}" --debug --mc-version=${mcver} localhost 9422
+	    screen -A -m -d -S ${hmScreen} /bin/bash halfHold.sh $hmDebug $hmQuiet $hmVerbose --mc-version=${mcver} "${hsswitch[@]}" localhost 9422
     else
         screen -A -m -d -S ${hmScreen} ./halfmod_engine $hmDebug $hmQuiet $hmVerbose --mc-version=${mcver} "${hsswitch[@]}" localhost 9422
     fi
@@ -107,7 +111,11 @@ else
 	done
 	rm "listo.nada"
 	echo "Launching halfShell + Minecraft $mcver . . ."
-	screen -A -m -d -S ${hsScreen} /bin/bash launchmc
+	if $restart; then
+		/bin/bash launchmc
+	else
+		screen -A -m -d -S ${hsScreen} /bin/bash launchmc
+	fi
 	# 1.12.2 ${hsScreen}
 #	screen -A -m -d -S ${hsScreen} ./launchhs.sh
 fi
