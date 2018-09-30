@@ -65,7 +65,7 @@ fi
 #sleep 1
 
 echo "#!/bin/bash" >launchmc
-echo "extern LD_PRELOAD=\"${PWD}/halfshell\" && java -Xms${mem_starting} -Xmx${mem_total} -jar minecraft_server.${mcver}.jar nogui" >>launchmc
+echo "export LD_PRELOAD=\"${PWD}/halfshell\" && java -Xms${mem_starting} -Xmx${mem_total} -jar minecraft_server.${mcver}.jar nogui" >>launchmc
 if $autorestart; then
     echo "./server.sh $origswitch --restart" >>launchmc
 fi

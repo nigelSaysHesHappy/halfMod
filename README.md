@@ -109,7 +109,7 @@ By default, all logging options are enabled.
 
 `--log-whitelist-off` Disable whitelist logging.
 
-If you only wanted to log bans, instead of disabling each one individually, you could do: `--log-off -log-bans`
+If you only wanted to log bans, instead of disabling each one individually, you could do: `--log-off --log-bans`
 
 # Adding Admins
 The file `./halfMod/config/admins.conf` contains the admin definitions.
