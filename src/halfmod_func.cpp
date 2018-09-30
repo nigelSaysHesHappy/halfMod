@@ -162,15 +162,18 @@ void loadAssets(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFilte
 
 bool receiveHandshake(int sockfd, hmGlobal &info, vector<hmHandle> &plugins)
 {
-    regex hsPtrn ("^(.*?)\t(.*?)\t(.*)$");
+    regex hsPtrn ("^([^\t]*)\t([^\t]*)\t(.*)$");
     smatch hsMl;
     string line;
     if ((readSock(sockfd,line) > 1) && (regex_match(line,hsMl,hsPtrn)))
     {
         info.hsVer = hsMl[1].str();
-        info.mcScreen = hsMl[2].str();
-        if (info.mcVer == "")
-            info.mcVer = hsMl[3].str();
+        if (hsMl[2].str().size() > 0)
+        {
+            info.mcVer = hsMl[2].str();
+            if (hsMl[3].str().size() > 0)
+                info.world = hsMl[3].str();
+        }
         cout<<"Link established with "<<info.hsVer<<endl;
         processEvent(plugins,HM_ONHSCONNECT,hsMl);
         return true;
@@ -229,7 +232,6 @@ void tryConnect(hmGlobal &serverInfo, int &sockfd, hostent *server, int port)
         server->h_length);
     serv_addr.sin_port = htons(port);
     serverInfo.hsSocket = -1;
-    serverInfo.mcScreen.clear();
     while (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
     {
         cerr<<"No connection to halfShell . . . Retrying in 1 second . . ."<<endl;
@@ -465,7 +467,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
             return 1;
     if (blocking & HM_BLOCK_EVENT)
         return 1;
-    if (thread == "]:-:-:-:[###[THREAD COMPLETE]###]:-:-:-:[")
+    if (thread.compare(0,37,"[HS] Server closed with exit status: ") == 0)
         return processEvent(plugins,HM_ONSHUTDOWNPOST);
     bool isRemote = false;
     if (gettok(thread,1," ") == "[99:99:99]")

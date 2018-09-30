@@ -286,7 +286,6 @@ struct hmGlobal
     std::string hmVer;
     std::string hsVer;
     std::string world;
-    std::string mcScreen;
     bool quiet = false;
     bool verbose = false;
     bool debug = false;

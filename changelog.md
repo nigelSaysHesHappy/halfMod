@@ -1,5 +1,53 @@
 Commit: Current  
 
+halfShell has recieved a major overhaul!
++ No longer a separate process from Minecraft. Now halfShell is a shared object file that is loaded directly into the JVM making it a legitimate wrapper.
++ + Not only does this provide a nice speed boost, but it is much more reliable and resource friendly.
++ `screen` is no longer a dependency.
++ + This means input is no longer santized!
++ + Single quotes are no longer replaced with backticks.
++ + Escapes are handled properly now.
++ + + This likely broke some halfMod plugins.
++ Slight change to `halfshell.conf`
++ + Replaced `allowed-ips` option with `allowed-ip` and multiple definitions can be used to allow more than one:
+```ini
+ip=127.0.0.1
+port=9422
+allowed-ip=127.0.0.1
+allowed-ip=1.2.3.4
+```
++ + These ip and port settings are the default and are not required in the conf.
++ + `127.0.0.1` is automatically allowed, so you shouldn't set it in a real conf.
++ Server output now prints to console again.
++ All commands can be run from either console input or through connected mods.
++ Added new commands:
++ + `echo [message ...]` Prints message to console. No substitution or evaluation is performed at all.
++ + `hs help` or `hs ?` Displays help text for `hs` commands.
++ + `hs kick <N> [reason ...]` Disconnects a connected mod. Can only be used from the console. See `hs list` for `N`.
++ + `hs quit [reason ...]` Disconnects the mod from halfShell. Can only be used from a connected mod.
++ The incoming handshake when connecting to halfShell has changed.
++ + Format: `<halfShell version>\t<Minecraft version>\t<world name>`
++ + Example: `halfShell v0.4.0	1.13.1	"world"`
++ + If the mod connects before the verson or world data is printed from Minecraft, that data will simply be missing, but the tabs will always be present. So be sure your mod still has checks for those lines. This is mostly a feature in case the mod connects late.  
+
+Slight updates to halfMod to support the new halfShell.  
+
+Updates to starting `server.sh` script:
++ Added a few more customizable options if you edit the file, complete with comments.
++ + Memory settings
++ + Default `--quiet`, `--debug`, and `--verbose` options.
++ `--auto-restart` now applies to halfMod as well. Without it, halfMod will no longer auto restart.
++ Added `--restart-halfmod` switch.
++ + If this switch is present and halfMod is already running, it will be killed and restarted.
++ + Without this switch, if `--auto-restart` is present, halfMod will only restart when it stops or crashes.  
+
+New halfMod plugin `benchmark`:
++ Benchmark Command Performance
++ Can benchmark how long (time and TPS) it takes to run a command N times.
++ Can run a `debug` profile for N seconds. Outputs the results at the end.  
+
+Commit: 72f6f56  
+
 Fixed bug that required previous revert.  
 Fixed small bug with the `urlchat` plugin.  
 
@@ -245,3 +293,4 @@ halfMod Plugin Changes:
 + + Fixed a bug with `hm_voterun` being weird with certain parameters  
 
 Added new secret features! (Because I can't remember everything else that has been changed/added)
+

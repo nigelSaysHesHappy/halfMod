@@ -1,24 +1,25 @@
 #!/bin/bash
 
-echo "Compiling halfMod API . . ."
 chmod +x buildapi.sh
 chmod +x buildengine.sh
 chmod +x buildshell.sh
 chmod +x plugins/compile.sh
 chmod +x extensions/compile.sh
+chmod +x ../server.sh
+echo "Compiling halfShell . . ."
+./buildshell.sh
+err=$?
+if [[ $err -ne 0 ]]; then
+    exit $err
+fi
+echo "Compiling halfMod API . . ."
 ./buildapi.sh
 err=$?
 if [[ $err -ne 0 ]]; then
     exit $err
 fi
 echo "Compiling halfMod Engine . . ."
-./buildengine.sh --build str_tok.cpp --build nigsock.cpp --build halfmod_func.cpp
-err=$?
-if [[ $err -ne 0 ]]; then
-    exit $err
-fi
-echo "Compiling halfShell . . ."
-./buildshell.sh
+./buildengine.sh --build str_tok.cpp --build halfmod_func.cpp
 err=$?
 if [[ $err -ne 0 ]]; then
     exit $err

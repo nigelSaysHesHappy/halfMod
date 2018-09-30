@@ -1,10 +1,25 @@
 #!/bin/bash
 
+# These will be the screen names used with screen. They are not important, use whatever you like.
 hmScreen=halfMod
 hsScreen=halfShell
-mcver=18w16a
+
+# The server jar file name must match: `minecraft_server.$mcver.jar`
+mcver=1.13.1
+
 autorestart=false
 restart=false
+hmRestart=false
+
+# Set these memory variables to your liking
+mem_starting=1024M
+mem_total=1024M
+
+# Comment/uncomment these to disable/enable them as default
+hmQuiet=--quiet
+hmDebug=--debug
+#hmVerbose=--verbose
+
 origswitch="$@"
 
 while [[ "$1" != "" ]]; do
@@ -15,6 +30,10 @@ while [[ "$1" != "" ]]; do
 		--restart)
 			restart=true
 		;;
+		--restart-halfmod)
+		    hmRestart=true
+		    hsswitch+=( $1 )
+	    ;;
 		--halfmod-screen=*)
 			hmScreen=$1
 			hmScreen=${hmScreen#--halfmod-screen=*}
@@ -42,21 +61,17 @@ if [[ "$world" != "" ]]; then
 	sed -i "s/^level-name=.*$/level-name=$world/" server.properties
 fi
 
-echo "Launching Minecraft + halfShell with halfMod . . ."
-sleep 1
+#echo "Launching Minecraft + halfShell with halfMod . . ."
+#sleep 1
 
 echo "#!/bin/bash" >launchmc
-echo "stdbuf -oL -eL java -Xms1024M -Xmx1024M -jar minecraft_server.${mcver}.jar nogui" >>launchmc
-echo "echo \"]:-:-:-:[###[THREAD COMPLETE]###]:-:-:-:[\"" >>launchmc
-echo "#!/bin/bash" >launchhs
+echo "extern LD_PRELOAD=\"${PWD}/halfshell\" && java -Xms${mem_starting} -Xmx${mem_total} -jar minecraft_server.${mcver}.jar nogui" >>launchmc
 if $autorestart; then
-	echo "/bin/bash launchmc | { ./halfshell ${hsScreen} ${mcver} ${hsswitch[@]}; ./server.sh $origswitch --restart; }" >>launchhs
-else
-	echo "/bin/bash launchmc | ./halfshell ${hsScreen} ${mcver} ${hsswitch[@]}" >>launchhs
+    echo "./server.sh $origswitch --restart" >>launchmc
 fi
 
 if ! $restart; then
-	PID=`screen -ls | grep halfShell`
+	PID=`screen -ls | grep $hsScreen`
 	PID=${PID%%.*}
 	PID=${PID#	}
 	if [[ "$PID" != "" ]]; then
@@ -64,20 +79,35 @@ if ! $restart; then
 		kill $PID
 	fi
 fi
+
+if $hmRestart; then
+    PID=`screen -ls | grep $hmScreen`
+    PID=${PID%%.*}
+	PID=${PID#	}
+	if [[ "$PID" != "" ]]; then
+		echo "Killing old halfMod . . ."
+		kill $PID
+	fi
+fi
+
 if screen -ls | grep "${hmScreen}">/dev/null; then
 	echo "halfMod already running . . ."
-	echo "Launching halfShell . . ."
-	screen -A -m -d -S ${hsScreen} /bin/bash launchhs
+	echo "Launching halfShell + Minecraft $mcver . . ."
+	screen -A -m -d -S ${hsScreen} /bin/bash launchmc
 else
 	echo "Launching halfMod . . ."
-	screen -A -m -d -S ${hmScreen} /bin/bash halfHold.sh "${hsswitch[@]}" --debug --mc-version=${mcver} localhost 9422
+	if $autorestart; then
+	    screen -A -m -d -S ${hmScreen} /bin/bash halfHold.sh "${hsswitch[@]}" --debug --mc-version=${mcver} localhost 9422
+    else
+        screen -A -m -d -S ${hmScreen} ./halfmod_engine $hmDebug $hmQuiet $hmVerbose --mc-version=${mcver} "${hsswitch[@]}" localhost 9422
+    fi
     # Wait for halfMod to initialize
 	while ! [ -f "listo.nada" ]; do
 		sleep 1
 	done
 	rm "listo.nada"
-	echo "Launching halfShell . . ."
-	screen -A -m -d -S ${hsScreen} /bin/bash launchhs
+	echo "Launching halfShell + Minecraft $mcver . . ."
+	screen -A -m -d -S ${hsScreen} /bin/bash launchmc
 	# 1.12.2 ${hsScreen}
 #	screen -A -m -d -S ${hsScreen} ./launchhs.sh
 fi
@@ -85,5 +115,4 @@ fi
 sleep 1
 
 rm -f launchmc 2>/dev/null
-rm -f launchhs 2>/dev/null
 
