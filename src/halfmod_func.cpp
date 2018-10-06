@@ -376,7 +376,8 @@ size_t findPlugins(const char *dir, vector<string> &paths)
 #define REGPTRN_NOEXEC       24
 #define REGPTRN_GLOBAL       25
 #define REGPTRN_PRINT        26
-#define REGPTRN_MAX          27
+#define REGPTRN_SHUTDPOST    27
+#define REGPTRN_MAX          28
 
 // in charge of populating the hmGlobal struct and controlling console output
 // I said f it and made it handle everything.
@@ -410,17 +411,24 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
         regex("\\[User Authenticator #([0-9]{1,})/INFO\\]: UUID of player (\\S+) is (.*)"),
         regex("\\[Server thread/ERROR\\]: Couldn't execute command for (\\S+): (\\S+) ?(.*)"),
         regex("::\\[GLOBAL\\] (.+)"),
-        regex("::\\[PRINT\\] (.+)")
+        regex("::\\[PRINT\\] (.+)"),
+        regex("\\[HS\\] Server closed with exit status: (.*)")
     };
         
     static bool catchLine = false;
     if (catchLine == true)
     {
         catchLine = false;
-        string nextLine;
-        nextLine = strremove(deltok(deltok(deltok(thread,1," "),1," "),1," "),",");
-        for (int i = 1, j = numtok(nextLine," ");i <= j;i++)
-            loadPlayerData(info,gettok(nextLine,i," "));
+        string nextLine = strremove(thread,",");
+        size_t pos[2] = {0};
+        for (int i = 3;i;i--)
+            pos[0] = nextLine.find(' ',pos[0])+1;
+        while (pos[1] < string::npos)
+        {
+            pos[1] = nextLine.find(' ',pos[0]);
+            loadPlayerData(info,nextLine.substr(pos[0],pos[1]));
+            pos[0] = pos[1]+1;
+        }
     }
     short blocking = 0;
     smatch ml;
@@ -457,297 +465,165 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
         }
     }
     if ((blocking & HM_BLOCK_OUTPUT) == 0)
-    {
         cout<<thread<<endl;
-        if (regex_match(thread,ml,ptrns[REGPTRN_ALL]))
-            processEvent(plugins,HM_ONCONSOLERECV,ml);
-    }
     if ((blocking & HM_BLOCK_HOOK) == 0)
         if (processHooks(plugins,thread))
-            return 1;
-    if (blocking & HM_BLOCK_EVENT)
-        return 1;
-    if (thread.compare(0,37,"[HS] Server closed with exit status: ") == 0)
-        return processEvent(plugins,HM_ONSHUTDOWNPOST);
-    bool isRemote = false;
-    if (gettok(thread,1," ") == "[99:99:99]")
-        isRemote = true;
-    if (regex_match(thread,ml,ptrns[REGPTRN_TIME]))
+            blocking |= HM_BLOCK_EVENT;
+    if ((blocking & HM_BLOCK_EVENT) == 0)
     {
-        thread = ml[1].str();
-        if (regex_match(thread,ml,ptrns[REGPTRN_INFO]))
+        regex_match(thread,ml,ptrns[REGPTRN_ALL]);
+        if (!processEvent(plugins,HM_ONCONSOLERECV,ml))
         {
-            if (processEvent(plugins,HM_ONINFO,ml))
-                return 1;
-            thread = ml[1].str();
-            if (regex_match(thread,ptrns[REGPTRN_IGNORE]))
-                return 0;
-            if (regex_match(thread,ml,ptrns[REGPTRN_SAY]))
+            bool isRemote = false;
+            if (thread.compare(0,10,"[99:99:99]") == 0)
+                isRemote = true;
+            if (regex_match(thread,ml,ptrns[REGPTRN_TIME]))
             {
-                //if ((ml[1].str() == "#SERVER") || (hmIsPlayerOnline(ml[1].str())))
-                if ((isRemote) || (hmIsPlayerOnline(ml[1].str())))
+                thread = ml[1].str();
+                if (regex_match(thread,ml,ptrns[REGPTRN_INFO]))
                 {
-                    smatch ml1 = ml;
-                    if (regex_match(thread,ml,ptrns[REGPTRN_CHATCMD]))
+                    if (!processEvent(plugins,HM_ONINFO,ml))
                     {
-                            if (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str()))
-                                return 1;
-                    }
-                    if (processEvent(plugins,HM_ONTEXT,ml1))
-                        return 1;
-                }
-                else if (processEvent(plugins,HM_ONFAKETEXT,ml))
-                    return 1;
-            }
-            else
-            {
-                if (regex_match(thread,ml,ptrns[REGPTRN_FAKESAY]))
-                {
-                    if (processEvent(plugins,HM_ONFAKETEXT,ml))
-                        return 1;
-                }
-                else
-                {
-                    if (regex_match(thread,ml,ptrns[REGPTRN_ACTION]))
-                    {
-                        if (processEvent(plugins,HM_ONACTION,ml))
-                            return 1;
-                    }
-                    else
-                    {
-                        if (regex_match(thread,ml,ptrns[REGPTRN_CONNECT]))
+                        thread = ml[1].str();
+                        if (!regex_match(thread,ptrns[REGPTRN_IGNORE]))
                         {
-                            hmWritePlayerDat(ml[1].str(),"ip=" + ml[2].str() + "\n" + data2str("join=%li",time(NULL)),"ip=join");
-                            if (processEvent(plugins,HM_ONCONNECT,ml))
-                                return 1;
-                        }
-                        else
-                        {
-/*gamerule randomTickSpeed
-[18:12:46] [Server thread/INFO]: Gamerule randomTickSpeed is currently set to: 3
-gamerule randomTickSpeed 4
-[18:12:56] [Server thread/INFO]: Gamerule randomTickSpeed is now set to: 4*/
-                            if (regex_match(thread,ml,ptrns[REGPTRN_GAMERULE]))
+                            if (regex_match(thread,ml,ptrns[REGPTRN_SAY]))
+                            {
+                                if ((isRemote) || (hmIsPlayerOnline(ml[1].str())))
+                                {
+                                    smatch ml1 = ml;
+                                    bool blocked = false;
+                                    if ((regex_match(thread,ml,ptrns[REGPTRN_CHATCMD])) && (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str())))
+                                        blocked = true;
+                                    if (!blocked)
+                                    {
+                                        if (isRemote)
+                                            processEvent(plugins,HM_ONFAKETEXT,ml);
+                                        else
+                                            processEvent(plugins,HM_ONTEXT,ml1);
+                                    }
+                                }
+                                else
+                                    processEvent(plugins,HM_ONFAKETEXT,ml);
+                            }
+                            else if (regex_match(thread,ml,ptrns[REGPTRN_FAKESAY]))
+                                processEvent(plugins,HM_ONFAKETEXT,ml);
+                            else if (regex_match(thread,ml,ptrns[REGPTRN_ACTION]))
+                                processEvent(plugins,HM_ONACTION,ml);
+                            else if (regex_match(thread,ml,ptrns[REGPTRN_CONNECT]))
+                            {
+                                hmWritePlayerDat(ml[1].str(),"ip=" + ml[2].str() + "\n" + data2str("join=%li",time(NULL)),"ip=join");
+                                processEvent(plugins,HM_ONCONNECT,ml);
+                            }
+                            else if (regex_match(thread,ml,ptrns[REGPTRN_GAMERULE]))
                             {
                                 hmConVar *cvar = hmFindConVar(ml[1].str());
                                 if ((cvar != nullptr) && ((cvar->flags & FCVAR_GAMERULE) > 0))
                                     cvar->setString(ml[3].str(),true);
-                                if (processEvent(plugins,HM_ONGAMERULE,ml))
-                                    return 1;
+                                processEvent(plugins,HM_ONGAMERULE,ml);
                             }
-                            /*ptrn = "TextComponent\\{.*text='([^\\s']+)'.*\\}\\[/([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}):([0-9]{1,})\\] logged in.*";
-                            if (regex_match(thread,ml,ptrn))
+                            else if (regex_match(thread,ml,ptrns[REGPTRN_SERVERSTART]))
                             {
-                                hmWritePlayerDat(ml[1].str(),"ip=" + ml[2].str() + "\n" + data2str("join=%li",time(NULL)),"ip=join");
-                                if (processEvent(plugins,HM_ONCONNECT,ml))
-                                    return 1;
+                                info.mcVer = ml[1].str();
+                                info.players.clear();
                             }
-                            else // no longer needed as of 18w02a
-                            {*/
-                            else
+                            else if (regex_match(thread,ml,ptrns[REGPTRN_LEVELPREP]))
+                                info.world = ml[1].str();
+                            else if (regex_match(thread,ml,ptrns[REGPTRN_LEVELINIT]))
                             {
-                                if (regex_match(thread,ml,ptrns[REGPTRN_SERVERSTART]))
-                                {
-                                    info.mcVer = ml[1].str();
-                                    info.players.clear();
-                                }
+                                hmSendRaw("list");
+                                if (info.mcVer == "")
+                                    cout<<"Minecraft version undefined."<<endl;
                                 else
+                                    cout<<"Minecraft version found: "<<info.mcVer<<endl;
+                                if (info.world == "")
+                                    cout<<"World undefined."<<endl;
+                                else
+                                    cout<<"World defined as: "<<info.world<<endl;
+                                internalExec(info,plugins,"","#SERVER","autoexec");    // on world load setup
+                                internalExec(info,plugins,"","#SERVER","startup");    // this will contain timed unbans if the server was offline when they expired
+                                remove("./halfMod/configs/startup.cfg");    // delete startup
+                                processEvent(plugins,HM_ONWORLDINIT,ml);
+                            }
+                            else if (regex_match(thread,ml,ptrns[REGPTRN_LIST]))
+                            {
+                                info.players.clear();
+                                if (stoi(ml[1].str()) > 0)
                                 {
-                                    if (regex_match(thread,ml,ptrns[REGPTRN_LEVELPREP]))
-                                        info.world = ml[1].str();
+                                    if (ml[2].str().size() < 2)
+                                        catchLine = true;
                                     else
                                     {
-                                        if (regex_match(thread,ml,ptrns[REGPTRN_LEVELINIT]))
+                                        string users = strremove(ml[4].str(),",");
+                                        size_t pos[2] = {0};
+                                        while (pos[1] < string::npos)
                                         {
-                                            hmSendRaw("list");
-                                            if (info.mcVer == "")
-                                                cout<<"Minecraft version undefined."<<endl;
-                                            else
-                                                cout<<"Minecraft version found: "<<info.mcVer<<endl;
-                                            if (info.world == "")
-                                                cout<<"World undefined."<<endl;
-                                            else
-                                                cout<<"World defined as: "<<info.world<<endl;
-                                            internalExec(info,plugins,"","#SERVER","autoexec");    // on world load setup
-                                            internalExec(info,plugins,"","#SERVER","startup");    // this will contain timed unbans if the server was offline when they expired
-                                            remove("./halfMod/configs/startup.cfg");    // delete startup
-                                            if (processEvent(plugins,HM_ONWORLDINIT,ml))
-                                                return 1;
-                                        }
-                                        else
-                                        {
-                                            if (regex_match(thread,ml,ptrns[REGPTRN_LIST]))
-                                            {
-                                                info.players.clear();
-                                                if (stoi(ml[1].str()) > 0)
-                                                {
-                                                    if (ml[2].str().size() < 2)
-                                                        catchLine = true;
-                                                    else
-                                                    {
-                                                        string users = strremove(ml[4].str(),",");
-                                                        for (int i = 1, j = numtok(users," ");i <= j;i++)
-                                                            loadPlayerData(info,gettok(users,i," "));
-                                                    }
-                                                }
-                                                info.maxPlayers = stoi(ml[3].str());
-                                            }
-                                            else
-                                            {
-                                                if (regex_match(thread,ml,ptrns[REGPTRN_JOIN]))
-                                                {
-                                                    loadPlayerData(info,ml[1].str());
-                                                    if (processEvent(plugins,HM_ONJOIN,ml))
-                                                        return 1;
-                                                }
-                                                else
-                                                {
-                                                    //[01:17:32] [Server thread/INFO]: TextComponent{text='nigathan', siblings=[], style=Style{hasParent=false, color=null, bold=null, italic=null, underlined=null, obfuscated=null, clickEvent=null, hoverEvent=null, insertion=null}} lost connection: Disconnected
-                                                    /*ptrn = "TextComponent\\{.*text='([^\\s']+)'.*\\} lost connection: (.*)";
-                                                    if (regex_match(thread,ml,ptrn))
-                                                    {
-                                                        if (hmIsPlayerOnline(ml[1].str()))
-                                                        {
-                                                            hmWritePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit=quitmsg");
-                                                            if (processEvent(plugins,HM_ONDISCONNECT,ml))
-                                                                return 1;
-                                                        }
-                                                    } // no longer needed as of 18w02a
-                                                    else */if (hmIsPlayerOnline(gettok(thread,1," ")))
-                                                    {
-                                                        if (regex_match(thread,ml,ptrns[REGPTRN_DISCONNECT]))
-                                                        {
-                                                            hmWritePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit=quitmsg");
-                                                            if (processEvent(plugins,HM_ONDISCONNECT,ml))
-                                                                return 1;
-                                                        }
-                                                        else
-                                                        {
-                                                            if (regex_match(thread,ml,ptrns[REGPTRN_LEFT]))
-                                                            {
-                                                                /*for (auto it = info.players.begin();it != info.players.end();)
-                                                                {
-                                                                    if (stripFormat(lower(it->name)) == stripFormat(lower(ml[1].str())))
-                                                                        info.players.erase(it);
-                                                                    else
-                                                                        ++it;
-                                                                }*/
-                                                                info.players.erase(stripFormat(lower(ml[1].str())));
-                                                                if (processEvent(plugins,HM_ONPART,ml))
-                                                                    return 1;
-                                                            }
-                                                            else
-                                                            {
-                                                                if (regex_match(thread,ml,ptrns[REGPTRN_ADVANCE]))
-                                                                {
-                                                                    if (processEvent(plugins,HM_ONADVANCE,ml))
-                                                                        return 1;
-                                                                }
-                                                                else
-                                                                {
-                                                                    if (regex_match(thread,ml,ptrns[REGPTRN_GOAL]))
-                                                                    {
-                                                                        if (processEvent(plugins,HM_ONGOAL,ml))
-                                                                            return 1;
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        if (regex_match(thread,ml,ptrns[REGPTRN_CHALLENGE]))
-                                                                        {
-                                                                            if (processEvent(plugins,HM_ONCHALLENGE,ml))
-                                                                                return 1;
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            if (regex_match(thread,ml,ptrns[REGPTRN_DEATH]))
-                                                                            {
-                                                                                string client = stripFormat(lower(ml[1].str())), msg = ml[2].str();
-                                                                                time_t cTime = time(NULL);
-                                                                                hmWritePlayerDat(client,data2str("death=%li",cTime) + "\ndeathmsg=" + msg,"death=deathmsg");
-                                                                                /*for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
-                                                                                {
-                                                                                    if (stripFormat(lower(it->name)) == client)
-                                                                                    {
-                                                                                        it->death = cTime;
-                                                                                        it->deathmsg = msg;
-                                                                                        break;
-                                                                                    }
-                                                                                }*/
-                                                                                auto c = info.players.find(client);
-                                                                                if (c != info.players.end())
-                                                                                {
-                                                                                    c->second.death = cTime;
-                                                                                    c->second.deathmsg = msg;
-                                                                                }
-                                                                                if (processEvent(plugins,HM_ONDEATH,ml))
-                                                                                    return 1;
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                            pos[1] = users.find(' ',pos[0]);
+                                            loadPlayerData(info,users.substr(pos[0],pos[1]));
+                                            pos[0] = pos[1]+1;
                                         }
                                     }
                                 }
+                                info.maxPlayers = stoi(ml[3].str());
                             }
-                          //} fix only needed on version 18w01a
+                            else if (regex_match(thread,ml,ptrns[REGPTRN_JOIN]))
+                            {
+                                loadPlayerData(info,ml[1].str());
+                                processEvent(plugins,HM_ONJOIN,ml);
+                            }
+                            else if (hmIsPlayerOnline(thread.substr(0,thread.find(' '))))
+                            {
+                                if (regex_match(thread,ml,ptrns[REGPTRN_DISCONNECT]))
+                                {
+                                    hmWritePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit=quitmsg");
+                                    processEvent(plugins,HM_ONDISCONNECT,ml);
+                                }
+                                else if (regex_match(thread,ml,ptrns[REGPTRN_LEFT]))
+                                {
+                                    info.players.erase(stripFormat(lower(ml[1].str())));
+                                    processEvent(plugins,HM_ONPART,ml);
+                                }
+                                else if (regex_match(thread,ml,ptrns[REGPTRN_ADVANCE]))
+                                    processEvent(plugins,HM_ONADVANCE,ml);
+                                else if (regex_match(thread,ml,ptrns[REGPTRN_GOAL]))
+                                    processEvent(plugins,HM_ONGOAL,ml);
+                                else if (regex_match(thread,ml,ptrns[REGPTRN_CHALLENGE]))
+                                    processEvent(plugins,HM_ONCHALLENGE,ml);
+                                else if (regex_match(thread,ml,ptrns[REGPTRN_DEATH]))
+                                {
+                                    string client = stripFormat(lower(ml[1].str())), msg = ml[2].str();
+                                    time_t cTime = time(NULL);
+                                    hmWritePlayerDat(client,data2str("death=%li",cTime) + "\ndeathmsg=" + msg,"death=deathmsg");
+                                    auto c = info.players.find(client);
+                                    if (c != info.players.end())
+                                    {
+                                        c->second.death = cTime;
+                                        c->second.deathmsg = msg;
+                                    }
+                                    processEvent(plugins,HM_ONDEATH,ml);
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
-        else
-        {
-            if (regex_match(thread,ml,ptrns[REGPTRN_WARN]))
-            {
-                if (processEvent(plugins,HM_ONWARN,ml))
-                    return 1;
-            }
-            else
-            {
-                if (regex_match(thread,ml,ptrns[REGPTRN_SHUTDOWN]))
+                else if (regex_match(thread,ml,ptrns[REGPTRN_WARN]))
+                    processEvent(plugins,HM_ONWARN,ml);
+                else if (regex_match(thread,ml,ptrns[REGPTRN_SHUTDOWN]))
+                    processEvent(plugins,HM_ONSHUTDOWN,ml);
+                else if (regex_match(thread,ml,ptrns[REGPTRN_AUTH]))
                 {
-                    if (processEvent(plugins,HM_ONSHUTDOWN,ml))
-                        return 1;
+                    hmWritePlayerDat(ml[2].str(),"uuid=" + ml[3].str(),"uuid",true);
+                    processEvent(plugins,HM_ONAUTH,ml);
                 }
-                else
-                {
-                    if (regex_match(thread,ml,ptrns[REGPTRN_AUTH]))
-                    {
-                        hmWritePlayerDat(ml[2].str(),"uuid=" + ml[3].str(),"uuid",true);
-                        if (processEvent(plugins,HM_ONAUTH,ml))
-                            return 1;
-                    }
-                    else
-                    {
-                        if (regex_match(thread,ml,ptrns[REGPTRN_NOEXEC]))
-                        {
-                            if (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str(),false))
-                                return 1;
-                        }
-                    }
-                }
+                else if (regex_match(thread,ml,ptrns[REGPTRN_NOEXEC]))
+                    processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str(),false);
             }
-        }
-    }
-    else
-    {
-        if (regex_match(thread,ml,ptrns[REGPTRN_GLOBAL]))
-        {
-            if (processEvent(plugins,HM_ONGLOBALMSG,ml))
-                return 1;
-        }
-        else
-        {
-            if (regex_match(thread,ml,ptrns[REGPTRN_PRINT]))
-            {
-                if (processEvent(plugins,HM_ONPRINTMSG,ml))
-                    return 1;
-            }
+            else if (regex_match(thread,ml,ptrns[REGPTRN_GLOBAL]))
+                processEvent(plugins,HM_ONGLOBALMSG,ml);
+            else if (regex_match(thread,ml,ptrns[REGPTRN_PRINT]))
+                processEvent(plugins,HM_ONPRINTMSG,ml);
+            else if (regex_match(thread,ml,ptrns[REGPTRN_SHUTDPOST]))
+                processEvent(plugins,HM_ONSHUTDOWNPOST,ml);
         }
     }
     return 0;

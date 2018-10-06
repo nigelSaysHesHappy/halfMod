@@ -11,7 +11,7 @@ if [ -f ".hmEngineBuildNo.sh" ]; then
 fi
 
 let "hmEngineBuild++"
-echo "#define VERSION \"halfMod v0.1.7-build${hmEngineBuild}\"">include/.hmEngineBuild.h
+echo "#define VERSION \"halfMod v0.1.8-build${hmEngineBuild}\"">include/.hmEngineBuild.h
 
 err=0
 
@@ -36,7 +36,7 @@ done
 # only increase build number if it compiled.
 if [[ $? != 0 ]]; then
 	let "hmEngineBuild--"
-	echo "#define VERSION \"halfMod v0.1.7-build${hmEngineBuild}\"">include/.hmEngineBuild.h
+	echo "#define VERSION \"halfMod v0.1.8-build${hmEngineBuild}\"">include/.hmEngineBuild.h
 else
     echo "hmEngineBuild=${hmEngineBuild}">.hmEngineBuildNo.sh
 fi

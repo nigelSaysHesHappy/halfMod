@@ -283,9 +283,7 @@ int isin(string text, string subtext, int pos)
 */
 string strremove(string text, const string &subtext)
 {
-    size_t i;
-    while ((i = text.find(subtext)) != string::npos)
-        text.erase(i,subtext.size());
+    for (size_t i = 0; (i = text.find(subtext,i)) != string::npos; text.erase(i,subtext.size()));
     return text;
 }
 

@@ -6,7 +6,7 @@ Join the halfShell Mod Development Discord server: <https://discord.gg/QKEGRQr>
 # halfShell
 halfShell is the real "mod loader". It works behind the scenes to communicate between Minecraft and mods. halfMod is the bundled mod with this package, but you can also create your own mods and connect them to halfShell as well.
 
-halfShell is shared object that wraps around the JVM Environment. It creates a shell server of sorts, only IP's defined in the `halfshell.conf` file will be able to connect to this server. `127.0.0.1` is always allowed by default.
+halfShell is a shared object that wraps around the JVM Environment. It creates a shell server of sorts, only IP's defined in the `halfshell.conf` file will be able to connect to this server. `127.0.0.1` is always allowed by default.
 
 Aside from the obvious ability to connect a halfMod process or other mod to it, you can also `telnet` into halfShell to instantly create a portable Minecraft Console.
 
@@ -38,10 +38,10 @@ All debian based distros work the best.
 
 `RedHat` distros can require a little more work, but should also work. With the exception of `CentOS`.
 
-~~`CentOS` is a free unlicensed distro of `RedHat`, because of this, it can be difficult to install `g++ 4.9.2`. It can be done, but with much headache, I highly discourage it.~~
+~~`CentOS` is a free unlicensed distro of `RedHat`, because of this, it can be difficult to install `g++ 4.9.2`. It can be done, but with much headache, I highly discourage it.~~  
 `CentOS` has not been tested since switching to clang.
 
-No other distros have been tested, but if `g++ 4.9.2` and `clang++-3.8` are installed, then it should work just fine.
+No other distros have been tested, but if `g++ 4.9.2`, `clang++-3.8`, and `libc++-dev` are installed, then it should work just fine.
 
 # Install
 Installation is very easy. Clone the repo and type the following commands into the terminal:

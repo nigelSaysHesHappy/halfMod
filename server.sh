@@ -20,104 +20,182 @@ hmQuiet=--quiet
 hmDebug=--debug
 #hmVerbose=--verbose
 
-origswitch="$@"
-
 while [[ "$1" != "" ]]; do
-	case "$1" in
-		--auto-restart)
-			autorestart=true
-		;;
-		--restart)
-			restart=true
-		;;
-		--restart-halfmod)
-		    hmRestart=true
-		    hsswitch+=( $1 )
-	    ;;
-		--halfmod-screen=*)
-			hmScreen=$1
-			hmScreen=${hmScreen#--halfmod-screen=*}
-		;;
-		--halfshell-screen=*)
-			hsScreen=$1
-			hsScreen=${hsScreen#--halfshell-screen=*}
-		;;
-		--mc-ver=*)
-			mcver=$1
-			mcver=${mcver#--mc-ver=*}
-		;;
-		--world=*)
-			world=$1
-			world=${world#--world=*}
-		;;
-		*)
-			hsswitch+=( $1 )
-		;;
-	esac
-	shift 1
+    case "$1" in
+        --auto-restart)
+            autorestart=true
+            origswitch+=( $1 )
+        ;;
+        --restart)
+            restart=true
+        ;;
+        --restart-halfmod)
+            hmRestart=true
+            origswitch+=( $1 )
+        ;;
+        --halfmod-screen=*)
+            hmScreen=$1
+            hmScreen=${hmScreen#--halfmod-screen=*}
+            origswitch+=( $1 )
+        ;;
+        --halfshell-screen=*)
+            hsScreen=$1
+            hsScreen=${hsScreen#--halfshell-screen=*}
+            origswitch+=( $1 )
+        ;;
+        --minecraft-screen=*)
+            hsScreen=$1
+            hsScreen=${hsScreen#--minecraft-screen=*}
+            origswitch+=( $1 )
+        ;;
+        --mc-ver=*)
+            mcver=$1
+            mcver=${mcver#--mc-ver=*}
+            origswitch+=( $1 )
+        ;;
+        --world=*)
+            world=$1
+            world=${world#--world=*}
+            origswitch+=( $1 )
+        ;;
+        --no-halfshell)
+            noShell=true
+            origswitch+=( $1 )
+        ;;
+        --no-halfmod)
+            noMod=true
+            origswitch+=( $1 )
+        ;;
+        --solo-halfmod)
+            noCraft=true
+            origswitch+=( $1 )
+        ;;
+        --stop)
+            noCraft=true
+            noMod=true
+            hmRestart=true
+            restart=false
+            origswitch+=( $1 )
+        ;;
+        --stop-halfmod)
+            noCraft=true
+            noMod=true
+            hmRestart=true
+            origswitch+=( $1 )
+        ;;
+        --stop-minecraft)
+            noCraft=true
+            noMod=true
+            restart=true
+            origswitch+=( $1 )
+        ;;
+        --no-restart)
+            noRestart=true
+            origswitch+=( $1 )
+        ;;
+        *)
+            hmSwitch+=( $1 )
+        ;;
+    esac
+    shift 1
 done
 
 if [[ "$world" != "" ]]; then
-	sed -i "s/^level-name=.*$/level-name=$world/" server.properties
+    sed -i "s/^level-name=.*$/level-name=$world/" server.properties
 fi
 
-#echo "Launching Minecraft + halfShell with halfMod . . ."
-#sleep 1
-
-echo "#!/bin/bash" >launchmc
-echo "export LD_PRELOAD=\"${PWD}/halfshell\" && java -Xms${mem_starting} -Xmx${mem_total} -jar minecraft_server.${mcver}.jar nogui" >>launchmc
-if $autorestart; then
-    echo "export LD_PRELOAD=\"\" && ./server.sh $origswitch --restart" >>launchmc
+if ! $noCraft; then
+    echo "#!/bin/bash" >launchmc
+    if $noShell; then
+        echo "java -Xms${mem_starting} -Xmx${mem_total} -jar minecraft_server.${mcver}.jar nogui" >>launchmc
+        if $autorestart; then
+            echo "sleep 1" >>launchmc
+            echo "./server.sh $origswitch --restart" >>launchmc
+        fi
+    else
+        echo "export LD_PRELOAD=\"${PWD}/halfshell\" && java -Xms${mem_starting} -Xmx${mem_total} -jar minecraft_server.${mcver}.jar nogui" >>launchmc
+        if $autorestart; then
+            echo "sleep 1" >>launchmc
+            echo "export LD_PRELOAD=\"\" && ./server.sh $origswitch --restart" >>launchmc
+        fi
+    fi
 fi
 
 if ! $restart; then
-	PID=`screen -ls | grep $hsScreen`
-	PID=${PID%%.*}
-	PID=${PID#	}
-	if [[ "$PID" != "" ]]; then
-		echo "Killing old halfShell . . ."
-		kill $PID
-	fi
+    PID=`screen -ls | grep $hsScreen`
+    PID=${PID%%.*}
+    PID=${PID#    }
+    if [[ "$PID" != "" ]]; then
+        if $noRestart; then
+            noCraft=true
+        else
+            echo "Killing $hsScreen . . ."
+            kill $PID
+        fi
+    fi
 fi
 
 if $hmRestart; then
     PID=`screen -ls | grep $hmScreen`
     PID=${PID%%.*}
-	PID=${PID#	}
-	if [[ "$PID" != "" ]]; then
-		echo "Killing old halfMod . . ."
-		kill $PID
-	fi
+    PID=${PID#    }
+    if [[ "$PID" != "" ]]; then
+        echo "Killing $hmScreen . . ."
+        kill $PID
+    fi
 fi
 
-if screen -ls | grep "${hmScreen}">/dev/null; then
-	echo "halfMod already running . . ."
-	echo "Launching halfShell + Minecraft $mcver . . ."
-	if $restart; then
-		/bin/bash launchmc
-	else
-		screen -A -m -d -S ${hsScreen} /bin/bash launchmc
-	fi
+if $noMod; then
+    if ! $noCraft; then
+        if $noShell; then
+            echo "Launching Minecraft $mcver on screen $hsScreen . . ."
+        else
+            echo "Launching halfShell + Minecraft $mcver on screen $hsScreen . . ."
+        fi
+        if $restart; then
+            /bin/bash launchmc
+        else
+            screen -A -m -d -S ${hsScreen} /bin/bash launchmc
+        fi
+    fi
+elif screen -ls | grep "${hmScreen}">/dev/null; then
+    echo "halfMod already running on screen $hmScreen . . ."
+    if ! $noCraft; then
+        if $noShell; then
+            echo "Launching Minecraft $mcver on screen $hsScreen . . ."
+        else
+            echo "Launching halfShell + Minecraft $mcver on screen $hsScreen . . ."
+        fi
+        if $restart; then
+            /bin/bash launchmc
+        else
+            screen -A -m -d -S ${hsScreen} /bin/bash launchmc
+        fi
+    fi
 else
-	echo "Launching halfMod . . ."
-	if $autorestart; then
-	    screen -A -m -d -S ${hmScreen} /bin/bash halfHold.sh $hmDebug $hmQuiet $hmVerbose --mc-version=${mcver} "${hsswitch[@]}" localhost 9422
+    echo "Launching halfMod on screen $hmScreen . . ."
+    if $autorestart; then
+        screen -A -m -d -S ${hmScreen} /bin/bash halfHold.sh $hmDebug $hmQuiet $hmVerbose --mc-version=${mcver} "${hmSwitch[@]}" localhost 9422
     else
-        screen -A -m -d -S ${hmScreen} ./halfmod_engine $hmDebug $hmQuiet $hmVerbose --mc-version=${mcver} "${hsswitch[@]}" localhost 9422
+        screen -A -m -d -S ${hmScreen} ./halfmod_engine $hmDebug $hmQuiet $hmVerbose --mc-version=${mcver} "${hmSwitch[@]}" localhost 9422
     fi
     # Wait for halfMod to initialize
-	while ! [ -f "listo.nada" ]; do
-		sleep 1
-	done
-	rm "listo.nada"
-	echo "Launching halfShell + Minecraft $mcver . . ."
-	if $restart; then
-		/bin/bash launchmc
-	else
-		screen -A -m -d -S ${hsScreen} /bin/bash launchmc
-	fi
-	# 1.12.2 ${hsScreen}
-#	screen -A -m -d -S ${hsScreen} ./launchhs.sh
+    while ! [ -f "listo.nada" ]; do
+        sleep 1
+    done
+    rm "listo.nada"
+    if ! $noCraft; then
+        if $noShell; then
+            echo "Launching Minecraft $mcver on screen $hsScreen . . ."
+        else
+            echo "Launching halfShell + Minecraft $mcver on screen $hsScreen . . ."
+        fi
+        if $restart; then
+            /bin/bash launchmc
+        else
+            screen -A -m -d -S ${hsScreen} /bin/bash launchmc
+        fi
+    fi
 fi
 
 sleep 1

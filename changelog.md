@@ -1,10 +1,29 @@
 Commit: Current  
 
-halfShell has recieved a major overhaul!
-+ No longer a separate process from Minecraft. Now halfShell is a shared object file that is loaded directly into the JVM making it a legitimate wrapper.
+halfMod Engine Updates:
++ Cleaned up `processThread` a lot. Runs smarter and faster increasing the overall efficiency of halfMod.
++ `onConsoleReceive` event callbacks are now properly called even when a console filter blocks output.
++ `onConsoleReceive` will now properly block if non-0 is returned.
++ `onServerShutdownPost` now requires an `std::smatch` like most other events. `smatch[1]` will be the exit status code of minecraft.
++ `onFakePlayerText` will now be called instead of `onPlayerText` when fake commands/messages have been sent from halfShell as long as the command did not exist or block.  
+
+More improvements to the launch script:
++ Each switch performs one job, any of them can be combined to produce desired output. (Some combinations may not achieve anything)
++ + `--no-halfshell` launch Minecraft without halfShell.
++ + `--no-halfmod` launch Minecraft and halfShell, but not halfMod.
++ + `--solo-halfmod` launch only halfMod.
++ + `--no-restart` starts halfShell/Minecraft only if it is not already running. Combine with `--restart-halfmod` to only restart halfMod.
++ + `--stop` completely stop halfShell/Minecraft and halfMod. (Same as `--solo-halfmod --no-halfmod --restart-halfmod --restart`)
++ + `--stop-halfmod` stop halfMod. Does not affect or launch halfShell/Minecraft. (Same as `--solo-halfmod --no-halfmod --restart-halfmod`)
++ + `--stop-minecraft` stop halfShell/Minecraft. Does not affect or launch halfMod. (Same as `--solo-halfmod --no-halfmod --restart`)  
+
+Commit: 6922645  
+
+halfShell has received a major overhaul!
++ No longer a seperate process from Minecraft. Now halfShell is a shared object file that is loaded directly into the JVM making it a legitimate wrapper.
 + + Not only does this provide a nice speed boost, but it is much more reliable and resource friendly.
 + `screen` is no longer a dependency.
-+ + This means input is no longer santized!
++ + This means input is no longer sanitized!
 + + Single quotes are no longer replaced with backticks.
 + + Escapes are handled properly now.
 + + + This likely broke some halfMod plugins.

@@ -105,7 +105,10 @@ bool hmHandle::load(const string &pluginPath, hmGlobal *global)
             else
             {
                 if ((*start)(*this,global))
+                {
+                    dlclose(module);
                     return false;
+                }
                 pluginName = deltok(deltok(deltok(deltok(modulePath,1,"/"),1,"/"),1,"/"),-1,".");
                 global->pluginList.push_back({modulePath,pluginName,info.version});
                 loaded = true;
@@ -128,7 +131,7 @@ bool hmHandle::load(const string &pluginPath, hmGlobal *global)
                 hookEvent(HM_ONWORLDINIT,HM_ONWORLDINIT_FUNC);
                 hookEvent(HM_ONHSCONNECT,HM_ONHSCONNECT_FUNC);
                 hookEvent(HM_ONHSDISCONNECT,HM_ONHSDISCONNECT_FUNC,false);
-                hookEvent(HM_ONSHUTDOWNPOST,HM_ONSHUTDOWNPOST_FUNC,false);
+                hookEvent(HM_ONSHUTDOWNPOST,HM_ONSHUTDOWNPOST_FUNC);
                 hookEvent(HM_ONREHASHFILTER,HM_ONREHASHFILTER_FUNC,false);
                 hookEvent(HM_ONGAMERULE,HM_ONGAMERULE_FUNC);
                 hookEvent(HM_ONGLOBALMSG,HM_ONGLOBALMSG_FUNC);
