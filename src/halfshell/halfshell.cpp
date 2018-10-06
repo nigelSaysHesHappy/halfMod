@@ -146,7 +146,7 @@ void exit(int status)
     hs_sendToAllClients("[HS] Server closed with exit status: " + std::to_string(status) + '\n');
     hs_closeAllSockets();
     original_exit(status);
-    throw "lol noreturn function returns";
+    //throw "lol noreturn function returns";
 }
 
 std::string hs_lower(std::string text)
