@@ -1,5 +1,11 @@
 Commit: Current  
 
+Fixed slight issues with launch script. I know, this happens every time D:
+
+Hopefully fixed halfShell hanging on exit when ran from WSL. (But also introduced a compiler warning...)
+
+Commit: 213cf08  
+
 halfMod Engine Updates:
 + Cleaned up `processThread` a lot. Runs smarter and faster increasing the overall efficiency of halfMod.
 + `onConsoleReceive` event callbacks are now properly called even when a console filter blocks output.

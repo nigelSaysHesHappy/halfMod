@@ -10,6 +10,10 @@ mcver=1.13.1
 autorestart=false
 restart=false
 hmRestart=false
+noMod=false
+noShell=false
+noCraft=false
+noRestart=false
 
 # Set these memory variables to your liking
 mem_starting=1024M
@@ -81,12 +85,12 @@ while [[ "$1" != "" ]]; do
             noCraft=true
             noMod=true
             hmRestart=true
+            restart=true
             origswitch+=( $1 )
         ;;
         --stop-minecraft)
             noCraft=true
             noMod=true
-            restart=true
             origswitch+=( $1 )
         ;;
         --no-restart)
