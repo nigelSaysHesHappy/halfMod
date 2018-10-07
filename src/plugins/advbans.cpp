@@ -6,7 +6,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION     "v0.0.7"
+#define VERSION     "v0.0.8"
 
 #define BLINE       1
 #define KLINE       2
@@ -306,6 +306,7 @@ int ipbanExpire(hmHandle &handle, string args)
 		file<<buffer;
 		file.close();
 	}
+	static rens::regex ip_pattern ("([0-9]{1,3}\\.){3}[0-9]{1,3}");
 	if (rens::regex_match(victim,ip_pattern))
 	{
 		hmSendRaw("pardon-ip " + victim);
