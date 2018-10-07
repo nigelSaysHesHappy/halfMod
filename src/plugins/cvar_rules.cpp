@@ -4,9 +4,9 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.4"
+#define VERSION		"v0.0.5"
 
-int lateLoadCvars(hmHandle &handle, hmHook hook, smatch args);
+int lateLoadCvars(hmHandle &handle, hmHook hook, rens::smatch args);
 bool loadCvars(hmHandle &handle);
 
 bool cvarRulesLoaded;

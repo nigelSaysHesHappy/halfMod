@@ -6,7 +6,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION     "v0.0.6"
+#define VERSION     "v0.0.7"
 
 #define BLINE       1
 #define KLINE       2
@@ -160,7 +160,7 @@ int blineCommand(hmHandle &handle, const hmPlayer &client, string args[], int ar
 	    }
 	    else
 	        hmLog("B-LINE: " + client.name + " added a rule for \"" + args[1] + "\" permanently.",LOG_BAN,"bans.log");
-        #ifdef HM_USE_PRCE2
+        #ifdef HM_USE_PCRE2
 		autoLine line = { BLINE, args[1], args[1], cTime, banTime, expire, client.name, reason };
 		#else
 		autoLine line = { BLINE, args[1], regex(args[1]), cTime, banTime, expire, client.name, reason };

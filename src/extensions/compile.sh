@@ -1,8 +1,8 @@
 #!/bin/bash
 
-source "../usePCRE.sh"
+source "../usePCRE2.sh"
 if $usePCRE; then
-    pcrelib=../o/pcre2_halfwrap.o -lpcre2-8
+    pcrelib="../o/pcre2_halfwrap.o -lpcre2-8"
 fi
 
 if [ ! -d compiled ]; then
