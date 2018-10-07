@@ -3,11 +3,11 @@
 #include <iostream>
 #include "str_tok.h"
 
-#define VERSION "v0.0.5"
+#define VERSION "v0.0.6"
 
 int benchmarkCvar(hmConVar &cvar, std::string oldVar, std::string newVar);
-int debugStart(hmHandle &handle, hmHook hook, std::smatch args);
-int debugStop(hmHandle &handle, hmHook hook, std::smatch args);
+int debugStart(hmHandle &handle, hmHook hook, rens::smatch args);
+int debugStop(hmHandle &handle, hmHook hook, rens::smatch args);
 
 int benchForCmd(hmHandle &handle, const hmPlayer &client, std::string args[], int argc);
 int benchForSec(hmHandle &handle, const hmPlayer &client, std::string args[], int argc);
@@ -45,7 +45,7 @@ int stopDebugTPS(hmHandle &handle, std::string args)
     return 1;
 }
 
-int debugStart(hmHandle &handle, hmHook hook, std::smatch args)
+int debugStart(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     benchmarkRunning = true;
     if (hook.name.substr(0,9) == "debugTime")
@@ -57,7 +57,7 @@ int debugStart(hmHandle &handle, hmHook hook, std::smatch args)
     return 0;
 }
 
-int debugStop(hmHandle &handle, hmHook hook, std::smatch args)
+int debugStop(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     benchmarkRunning = false;
     if (hook.name == "debugStop")

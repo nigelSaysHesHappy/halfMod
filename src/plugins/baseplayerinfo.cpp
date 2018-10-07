@@ -1,13 +1,11 @@
 #include <iostream>
-#include <string>
-#include <regex>
 #include <ctime>
 #include "halfmod.h"
 #include "str_tok.h"
 #include "nbtmap.h"
 using namespace std;
 
-#define VERSION "v0.0.9"
+#define VERSION "v0.1.0"
 
 string amtTime(/*love you*/long times);
 
@@ -129,7 +127,7 @@ int whoisPlayer(hmHandle &handle, const hmPlayer &caller, string args[], int arg
     return 0;
 }
 
-int whoisLookup(hmHandle &handle, hmHook hook, smatch args)
+int whoisLookup(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = args[1].str(), caller = gettok(hook.name,1," "), dim = "-1", gm = "-1", access;
     NBTCompound nbt (args[2].str());
@@ -234,7 +232,7 @@ int wherePlayer(hmHandle &handle, const hmPlayer &client, string args[], int arg
     return 0;
 }
 
-int whereAmI(hmHandle &handle, hmHook hook, smatch args)
+int whereAmI(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = args[1].str(), dim = "-1";
     NBTCompound nbt (args[2].str());
@@ -271,7 +269,7 @@ int timeTillDay(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int timeCheck(hmHandle &handle, hmHook hook, smatch args)
+int timeCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     int dTime = stoi(args[2].str()), ticks = 0;
     if (dTime < 12541)

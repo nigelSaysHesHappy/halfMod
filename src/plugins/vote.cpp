@@ -2,7 +2,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.4"
+#define VERSION "v0.1.5"
 
 class voteInfo
 {
@@ -55,7 +55,7 @@ int timeAddChange(hmConVar &cvar, string oldVal, string newVal)
     return 0;
 }
 
-int onPlayerDisconnect(hmHandle &handle, smatch args)
+int onPlayerDisconnect(hmHandle &handle, rens::smatch args)
 {
     if (vote.quantity > 1)
     {

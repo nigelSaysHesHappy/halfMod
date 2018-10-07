@@ -3,7 +3,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.9"
+#define VERSION		"v0.1.0"
 
 bool skullDrop = true;
 
@@ -54,7 +54,7 @@ int cChange(hmConVar &cvar, string oldVar, string newVar)
     return 0;
 }
 
-int onPlayerDeath(hmHandle &handle, smatch args)
+int onPlayerDeath(hmHandle &handle, rens::smatch args)
 {
     if (skullDrop)
     {

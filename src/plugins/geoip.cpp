@@ -4,7 +4,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION     "v0.1.0"
+#define VERSION     "v0.1.1"
 #define GEOIPDAT    "./geoip/GeoLiteCity.dat"
 
 bool geoEnabled = false;
@@ -55,7 +55,7 @@ int cvarChange(hmConVar &cvar, string oldVal, string newVal)
 }
 
 // event triggered when a player connects
-int onPlayerConnect(hmHandle &handle, smatch args)
+int onPlayerConnect(hmHandle &handle, rens::smatch args)
 {
     string ip = args[2].str();
     string client = args[1].str();
@@ -87,12 +87,12 @@ int onPlayerConnect(hmHandle &handle, smatch args)
                 out = ml[1];
             else    out = deltok(str,1,":");*/
             str = deltok(str,1,":");
-            regex ptrn ("([0-9]|N/A)");
+            static rens::regex ptrn ("([0-9]|N/A)");
             out = gettok(str,1,",");
             for (int i = 2;i < 6;i++)
             {
                 tmp = gettok(str,i,",");
-                if (!regex_search(tmp,ptrn))
+                if (!rens::regex_search(tmp,ptrn))
                     out = appendtok(out,tmp,",");
             }
             if (geoEnabled)

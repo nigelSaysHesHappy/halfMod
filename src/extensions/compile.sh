@@ -1,5 +1,10 @@
 #!/bin/bash
 
+source "../usePCRE.sh"
+if $usePCRE; then
+    pcrelib=../o/pcre2_halfwrap.o -lpcre2-8
+fi
+
 if [ ! -d compiled ]; then
 	mkdir compiled
 fi
@@ -36,7 +41,7 @@ while [ -f "$1" ]; do
 	pluginsrc="$1"
 	pluginhmo="compiled/${pluginsrc%.*}.hmo"
 #	g++ -std=c++11 -I ../include -o "${pluginhmo}" ../o/halfmod.o ../o/str_tok.o -shared "${pluginsrc}" -fPIC
-	/usr/bin/clang++-3.8 -std=c++11 -stdlib=libc++ -I ../include -o "${pluginhmo}" "${pluginsrc}" ../o/halfmod.o ../o/str_tok.o "${flags[@]}" -shared -fPIC
+	/usr/bin/clang++-3.8 -std=c++11 -stdlib=libc++ -I ../include -o "${pluginhmo}" "${pluginsrc}" ../o/halfmod.o ../o/str_tok.o $pcrelib "${flags[@]}" -shared -fPIC
 	err=$?
 	if [[ "$err" == "0" ]]; then
 		if [[ "$switchInstall" == "1" ]]; then

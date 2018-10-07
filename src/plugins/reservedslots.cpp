@@ -1,11 +1,10 @@
 #include <iostream>
 #include <string>
-#include <regex>
 #include "halfmod.h"
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.8"
+#define VERSION		"v0.0.9"
 
 int reservedSlots = 1;
 
@@ -58,7 +57,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     return 0;
 }
 
-int onPlayerJoin(hmHandle &handle, smatch args)
+int onPlayerJoin(hmHandle &handle, rens::smatch args)
 {
     hmGlobal *global;
     global = recallGlobal(global);

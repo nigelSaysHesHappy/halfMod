@@ -1,14 +1,16 @@
 #include <iostream>
-#include <string>
 #include <fstream>
 #include <ctime>
-#include <regex>
 #include <dirent.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <array>
 #include "str_tok.h"
 #include "halfmod.h"
+
+#ifndef HM_USE_PCRE2
+#include <array>
+#endif
+
 #include "halfmod_func.h"
 #include ".hmEngineBuild.h"
 using namespace std;
@@ -143,9 +145,15 @@ void loadAllExtensions(hmGlobal &info)
 void loadAllPlugins(hmGlobal &info, vector<hmHandle> &plugins)
 {
     vector<string> paths;
-    plugins.reserve(findPlugins("./halfMod/plugins/",paths));
+    size_t foo = findPlugins("./halfMod/plugins/",paths);
+    plugins.reserve(foo);
+    std::cout<<"Loading "<<foo<<" plugins . . ."<<std::endl;
     for (auto it = paths.begin(), ite = paths.end();it != ite;++it)
+    {
+        std::cout<<"Loading plugin \""<<*it<<"\" . . ."<<std::endl;
         loadPlugin(info,plugins,*it);
+    }
+    std::cout<<"plugins loaded."<<std::endl;
     processEvent(plugins,HM_ONPLUGINSLOADED);
 }
 
@@ -162,16 +170,16 @@ void loadAssets(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFilte
 
 bool receiveHandshake(int sockfd, hmGlobal &info, vector<hmHandle> &plugins)
 {
-    regex hsPtrn ("^([^\t]*)\t([^\t]*)\t(.*)$");
-    smatch hsMl;
+    static rens::regex hsPtrn ("^([^\t]*)\t([^\t]*)\t(.*)$");
+    rens::smatch hsMl;
     string line;
-    if ((readSock(sockfd,line) > 1) && (regex_match(line,hsMl,hsPtrn)))
+    if ((readSock(sockfd,line) > 1) && (rens::regex_search(line,hsMl,hsPtrn)))
     {
         info.hsVer = hsMl[1].str();
-        if (hsMl[2].str().size() > 0)
+        if (hsMl[2].length() > 0)
         {
             info.mcVer = hsMl[2].str();
-            if (hsMl[3].str().size() > 0)
+            if (hsMl[3].length() > 0)
                 info.world = hsMl[3].str();
         }
         cout<<"Link established with "<<info.hsVer<<endl;
@@ -383,6 +391,39 @@ size_t findPlugins(const char *dir, vector<string> &paths)
 // I said f it and made it handle everything.
 int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
 {
+    #ifdef HM_USE_PCRE2
+    static const rens::regex ptrns[REGPTRN_MAX] =
+    {
+        ".*",
+        "\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] (.+)",
+        "\\[Server thread/INFO\\]: (.*)",
+        "[^\\s\\[\\]<>]+ (did not match|has the following entity data:|has [0-9]+ experience|has [0-9]+ \\[.*?\\]|moved too quickly!|moved wrongly!).*",
+        "<(\\S+?)> (.*)",
+        "<(\\S+?)> !(\\S+) ?(.*)",
+        "\\[(\\S+?)\\] (.*)",
+        "\\* (\\S+) (.+)",
+        "([^\\s\\[]+)\\[/([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}):([0-9]{1,})\\] logged in.*",
+        "\\[?[^ ]* ?Gamerule ([^ ]+) is (now|currently) set to: (.+?)\\]?$",
+        "Starting minecraft server version (.+)",
+        "Preparing level (.+)",
+        "Done \\((.*)\\)!.*",
+        "There are ([0-9]{1,})(/| of a max )([0-9]{1,}) players online:\\s*(.*)",
+        "(\\S+) joined the game",
+        "(\\S+) lost connection: (.*)",
+        "(\\S+) left the game",
+        "(\\S+) has made the advancement (.*)",
+        "(\\S+) has reached the goal (.*)",
+        "(\\S+) has completed the challenge (.*)",
+        "(\\S+) (.+)",
+        "\\[Server thread/WARN\\]: (.*)",
+        "\\[Server Shutdown Thread/INFO\\]: (.*)",
+        "\\[User Authenticator #([0-9]{1,})/INFO\\]: UUID of player (\\S+) is (.*)",
+        "\\[Server thread/ERROR\\]: Couldn't execute command for (\\S+): (\\S+) ?(.*)",
+        "::\\[GLOBAL\\] (.+)",
+        "::\\[PRINT\\] (.+)",
+        "\\[HS\\] Server closed with exit status: (.*)"
+    };
+    #else
     static const array<regex,REGPTRN_MAX> ptrns =
     {
         regex(".*"),
@@ -414,6 +455,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
         regex("::\\[PRINT\\] (.+)"),
         regex("\\[HS\\] Server closed with exit status: (.*)")
     };
+    #endif
         
     static bool catchLine = false;
     if (catchLine == true)
@@ -431,12 +473,12 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
         }
     }
     short blocking = 0;
-    smatch ml;
+    rens::smatch ml;
     vector<int> events;
     bool newEvent;
     for (auto it = info.conFilter->begin(), ite = info.conFilter->end();it != ite;++it)
     {
-        if (regex_search(thread,ml,it->filter))
+        if (rens::regex_search(thread,ml,it->filter))
         {
             if (it->blockOut)
                 blocking |= HM_BLOCK_OUTPUT;
@@ -471,29 +513,29 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
             blocking |= HM_BLOCK_EVENT;
     if ((blocking & HM_BLOCK_EVENT) == 0)
     {
-        regex_match(thread,ml,ptrns[REGPTRN_ALL]);
+        rens::regex_match(thread,ml,ptrns[REGPTRN_ALL]);
         if (!processEvent(plugins,HM_ONCONSOLERECV,ml))
         {
             bool isRemote = false;
             if (thread.compare(0,10,"[99:99:99]") == 0)
                 isRemote = true;
-            if (regex_match(thread,ml,ptrns[REGPTRN_TIME]))
+            if (rens::regex_match(thread,ml,ptrns[REGPTRN_TIME]))
             {
                 thread = ml[1].str();
-                if (regex_match(thread,ml,ptrns[REGPTRN_INFO]))
+                if (rens::regex_match(thread,ml,ptrns[REGPTRN_INFO]))
                 {
                     if (!processEvent(plugins,HM_ONINFO,ml))
                     {
                         thread = ml[1].str();
-                        if (!regex_match(thread,ptrns[REGPTRN_IGNORE]))
+                        if (!rens::regex_match(thread,ptrns[REGPTRN_IGNORE]))
                         {
-                            if (regex_match(thread,ml,ptrns[REGPTRN_SAY]))
+                            if (rens::regex_match(thread,ml,ptrns[REGPTRN_SAY]))
                             {
                                 if ((isRemote) || (hmIsPlayerOnline(ml[1].str())))
                                 {
-                                    smatch ml1 = ml;
+                                    rens::smatch ml1 = ml;
                                     bool blocked = false;
-                                    if ((regex_match(thread,ml,ptrns[REGPTRN_CHATCMD])) && (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str())))
+                                    if ((rens::regex_match(thread,ml,ptrns[REGPTRN_CHATCMD])) && (processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str())))
                                         blocked = true;
                                     if (!blocked)
                                     {
@@ -506,30 +548,30 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
                                 else
                                     processEvent(plugins,HM_ONFAKETEXT,ml);
                             }
-                            else if (regex_match(thread,ml,ptrns[REGPTRN_FAKESAY]))
+                            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_FAKESAY]))
                                 processEvent(plugins,HM_ONFAKETEXT,ml);
-                            else if (regex_match(thread,ml,ptrns[REGPTRN_ACTION]))
+                            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_ACTION]))
                                 processEvent(plugins,HM_ONACTION,ml);
-                            else if (regex_match(thread,ml,ptrns[REGPTRN_CONNECT]))
+                            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_CONNECT]))
                             {
                                 hmWritePlayerDat(ml[1].str(),"ip=" + ml[2].str() + "\n" + data2str("join=%li",time(NULL)),"ip=join");
                                 processEvent(plugins,HM_ONCONNECT,ml);
                             }
-                            else if (regex_match(thread,ml,ptrns[REGPTRN_GAMERULE]))
+                            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_GAMERULE]))
                             {
                                 hmConVar *cvar = hmFindConVar(ml[1].str());
                                 if ((cvar != nullptr) && ((cvar->flags & FCVAR_GAMERULE) > 0))
                                     cvar->setString(ml[3].str(),true);
                                 processEvent(plugins,HM_ONGAMERULE,ml);
                             }
-                            else if (regex_match(thread,ml,ptrns[REGPTRN_SERVERSTART]))
+                            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_SERVERSTART]))
                             {
                                 info.mcVer = ml[1].str();
                                 info.players.clear();
                             }
-                            else if (regex_match(thread,ml,ptrns[REGPTRN_LEVELPREP]))
+                            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_LEVELPREP]))
                                 info.world = ml[1].str();
-                            else if (regex_match(thread,ml,ptrns[REGPTRN_LEVELINIT]))
+                            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_LEVELINIT]))
                             {
                                 hmSendRaw("list");
                                 if (info.mcVer == "")
@@ -545,7 +587,7 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
                                 remove("./halfMod/configs/startup.cfg");    // delete startup
                                 processEvent(plugins,HM_ONWORLDINIT,ml);
                             }
-                            else if (regex_match(thread,ml,ptrns[REGPTRN_LIST]))
+                            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_LIST]))
                             {
                                 info.players.clear();
                                 if (stoi(ml[1].str()) > 0)
@@ -566,30 +608,30 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
                                 }
                                 info.maxPlayers = stoi(ml[3].str());
                             }
-                            else if (regex_match(thread,ml,ptrns[REGPTRN_JOIN]))
+                            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_JOIN]))
                             {
                                 loadPlayerData(info,ml[1].str());
                                 processEvent(plugins,HM_ONJOIN,ml);
                             }
                             else if (hmIsPlayerOnline(thread.substr(0,thread.find(' '))))
                             {
-                                if (regex_match(thread,ml,ptrns[REGPTRN_DISCONNECT]))
+                                if (rens::regex_match(thread,ml,ptrns[REGPTRN_DISCONNECT]))
                                 {
                                     hmWritePlayerDat(ml[1].str(),data2str("quit=%li",time(NULL)) + "\nquitmsg=" + ml[2].str(),"quit=quitmsg");
                                     processEvent(plugins,HM_ONDISCONNECT,ml);
                                 }
-                                else if (regex_match(thread,ml,ptrns[REGPTRN_LEFT]))
+                                else if (rens::regex_match(thread,ml,ptrns[REGPTRN_LEFT]))
                                 {
                                     info.players.erase(stripFormat(lower(ml[1].str())));
                                     processEvent(plugins,HM_ONPART,ml);
                                 }
-                                else if (regex_match(thread,ml,ptrns[REGPTRN_ADVANCE]))
+                                else if (rens::regex_match(thread,ml,ptrns[REGPTRN_ADVANCE]))
                                     processEvent(plugins,HM_ONADVANCE,ml);
-                                else if (regex_match(thread,ml,ptrns[REGPTRN_GOAL]))
+                                else if (rens::regex_match(thread,ml,ptrns[REGPTRN_GOAL]))
                                     processEvent(plugins,HM_ONGOAL,ml);
-                                else if (regex_match(thread,ml,ptrns[REGPTRN_CHALLENGE]))
+                                else if (rens::regex_match(thread,ml,ptrns[REGPTRN_CHALLENGE]))
                                     processEvent(plugins,HM_ONCHALLENGE,ml);
-                                else if (regex_match(thread,ml,ptrns[REGPTRN_DEATH]))
+                                else if (rens::regex_match(thread,ml,ptrns[REGPTRN_DEATH]))
                                 {
                                     string client = stripFormat(lower(ml[1].str())), msg = ml[2].str();
                                     time_t cTime = time(NULL);
@@ -606,23 +648,23 @@ int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
                         }
                     }
                 }
-                else if (regex_match(thread,ml,ptrns[REGPTRN_WARN]))
+                else if (rens::regex_match(thread,ml,ptrns[REGPTRN_WARN]))
                     processEvent(plugins,HM_ONWARN,ml);
-                else if (regex_match(thread,ml,ptrns[REGPTRN_SHUTDOWN]))
+                else if (rens::regex_match(thread,ml,ptrns[REGPTRN_SHUTDOWN]))
                     processEvent(plugins,HM_ONSHUTDOWN,ml);
-                else if (regex_match(thread,ml,ptrns[REGPTRN_AUTH]))
+                else if (rens::regex_match(thread,ml,ptrns[REGPTRN_AUTH]))
                 {
                     hmWritePlayerDat(ml[2].str(),"uuid=" + ml[3].str(),"uuid",true);
                     processEvent(plugins,HM_ONAUTH,ml);
                 }
-                else if (regex_match(thread,ml,ptrns[REGPTRN_NOEXEC]))
+                else if (rens::regex_match(thread,ml,ptrns[REGPTRN_NOEXEC]))
                     processCmd(info,plugins,"hm_" + ml[2].str(),ml[1].str(),ml[3].str(),false);
             }
-            else if (regex_match(thread,ml,ptrns[REGPTRN_GLOBAL]))
+            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_GLOBAL]))
                 processEvent(plugins,HM_ONGLOBALMSG,ml);
-            else if (regex_match(thread,ml,ptrns[REGPTRN_PRINT]))
+            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_PRINT]))
                 processEvent(plugins,HM_ONPRINTMSG,ml);
-            else if (regex_match(thread,ml,ptrns[REGPTRN_SHUTDPOST]))
+            else if (rens::regex_match(thread,ml,ptrns[REGPTRN_SHUTDPOST]))
                 processEvent(plugins,HM_ONSHUTDOWNPOST,ml);
         }
     }
@@ -641,7 +683,7 @@ int processEvent(vector<hmHandle> &plugins, int event)
     return 0;
 }
 
-int processEvent(vector<hmHandle> &plugins, int event, smatch thread)
+int processEvent(vector<hmHandle> &plugins, int event, rens::smatch thread)
 {
     hmEvent evnt;
     for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
@@ -829,13 +871,13 @@ int processCmd(hmGlobal &global, vector<hmHandle> &plugins, const string &cmd, c
 
 int processHooks(vector<hmHandle> &plugins, const string &thread)
 {
-    smatch ml;
+    rens::smatch ml;
     for (auto ita = recallGlobal(NULL)->extensions.begin(), itb = recallGlobal(NULL)->extensions.end();ita != itb;++ita)
     {
         for (auto it = ita->hooks.begin(), ite = ita->hooks.end();it != ite;++it)
         {
             if (it->name != "")
-                if (regex_search(thread,ml,it->rptrn))
+                if (rens::regex_search(thread,ml,it->rptrn))
                     if ((*it->func)(*ita,*it,ml))
                         return 1;
         }
@@ -845,7 +887,7 @@ int processHooks(vector<hmHandle> &plugins, const string &thread)
         for (auto it = ita->hooks.begin(), ite = ita->hooks.end();it != ite;++it)
         {
             if (it->name != "")
-                if (regex_search(thread,ml,it->rptrn))
+                if (rens::regex_search(thread,ml,it->rptrn))
                     if ((*it->func)(*ita,*it,ml))
                         return 1;
         }
@@ -860,8 +902,8 @@ int hashAdmins(hmGlobal &info, const string &path)
     ifstream file (path);
     string line, flagstr;
     int flags;
-    regex comment ("#.*");
-    regex white ("\\s");
+    //regex comment ("#.*");
+    //regex white ("\\s");
     for (auto it = info.players.begin(), ite = info.players.end();it != ite;++it)
         it->second.flags = 0;
     if (file.is_open())
@@ -869,10 +911,16 @@ int hashAdmins(hmGlobal &info, const string &path)
         info.admins.clear();
         while (getline(file,line))
         {
-            line = regex_replace(line,white,"");
-            if (regex_match(line,comment))
+            //line = regex_replace(line,white,"");
+            line = strremove(strremove(line,"\t")," ");
+            //if (regex_match(line,comment))
+            //    continue;
+            if (line.at(0) == '#')
                 continue;
-            line = regex_replace(line,comment,"");
+            //line = regex_replace(line,comment,"");
+            size_t p = line.find('#');
+            if (p < std::string::npos)
+                line.erase(p);
             if (numtok(line,"=") > 1)
             {
                 flags = 0;

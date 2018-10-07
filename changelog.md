@@ -1,4 +1,20 @@
-Commit: Current  
+Commit: Current
+
+Added a new library: `pcre2_halfwrap.h`
++ This library is disabled by default. To use this library instead of `std::regex` for all internal halfMod and API workings edit the `./src/usePCRE2.sh` file and change the value to `true`.
++ This is an experimental library, you must have PCRE2 installed before you can use it.
++ PCRE2 boasts increased speeds thanks to JIT compilation. This should make halfMod keep up with server output much faster.
++ To ensure plugin compatibility regardless of whether this library is used or not, use the `rens` namespace infront of your regex calls:
++ + Currently supported regex calls:
++ + + `rens::regex`
++ + + `rens::smatch`
++ + + `rens::regex_search`
++ + + `rens::regex_match`
++ All functionality should still (hopefully) be preserved.
+
+Replaced all calls to clang in the compile scripts to `clang++` instead of `/usr/bin/clang++-3.8`.
+
+Commit: bf8a0ba  
 
 Fixed slight issues with launch script. I know, this happens every time D:
 

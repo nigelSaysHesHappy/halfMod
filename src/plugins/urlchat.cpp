@@ -6,7 +6,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.6"
+#define VERSION "v0.1.7"
 
 void generateScript();
 void* urlLookup(void *vrl);
@@ -58,7 +58,7 @@ int cvarChange(hmConVar &cvar, string oldVal, string newVal)
     return 0;
 }
 
-int urlParse(hmHandle &handle, hmHook hook, smatch args)
+int urlParse(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     if (url_enabled)
     {
@@ -255,17 +255,17 @@ string charCodes[MAX_CHAR_CODES] = {
 
 string html2txt(string text)
 {
-    regex ptrn ("&(.+?);");
-    smatch ml;
+    static rens::regex ptrn ("&(.+?);");
+    rens::smatch ml;
     string code;
-    while (regex_search(text,ml,ptrn))
+    while (rens::regex_search(text,ml,ptrn))
     {
         code = ml[1].str();
         if (code[0] == '#')
         {
             code.erase(0,1);
             code = char(stoi(code));
-            text = regex_replace(text,regex(ml[0].str()),code);
+            text = strreplace(text,ml[0].str(),code);
         }
         else
         {
@@ -290,7 +290,7 @@ string html2txt(string text)
             }
             if (code.size() > 1)
                 code = "?";
-            text = regex_replace(text,regex(ml[0].str()),code);
+            text = strreplace(text,ml[0].str(),code);
         }
     }
     return text;

@@ -1,9 +1,10 @@
 #include <fstream>
+#include <regex>
 #include "halfmod.h"
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.0.3"
+#define VERSION		"v0.0.4"
 
 int lateLoadCvars(hmHandle &handle, hmHook hook, smatch args);
 bool loadCvars(hmHandle &handle);
@@ -30,7 +31,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     return 0;
 }
 
-int onWorldInit(hmHandle &handle, smatch args)
+int onWorldInit(hmHandle &handle, rens::smatch args)
 {
     cvarRulesLoaded = loadCvars(handle);
     return 0;
@@ -38,7 +39,7 @@ int onWorldInit(hmHandle &handle, smatch args)
 
 }
 
-int lateLoadCvars(hmHandle &handle, hmHook hook, smatch args)
+int lateLoadCvars(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     handle.unhookPattern(hook.name);
     if (!cvarRulesLoaded)
@@ -56,15 +57,15 @@ bool loadCvars(hmHandle &handle)
         bool hMin, hMax;
         float min, max;
         int i, j;
-        regex comment ("\\s*#.*");
-        regex white0 ("$\\s+");
-        regex white1 ("\\s+");
+        std::regex comment ("\\s*#.*");
+        std::regex white0 ("$\\s+");
+        std::regex white1 ("\\s+");
         while (getline(file,line))
         {
-            if ((line.size() < 1) || (regex_match(line,comment)))
+            if ((line.size() < 1) || (std::regex_match(line,comment)))
                 continue;
-            line = regex_replace(line,white0,"");
-            line = regex_replace(line,white1," ");
+            line = std::regex_replace(line,white0,"");
+            line = std::regex_replace(line,white1," ");
             name = getqtok(line,1," ");
             value = getqtok(name,2,"=");
             name = getqtok(name,1,"=");

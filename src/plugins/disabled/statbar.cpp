@@ -1,6 +1,4 @@
 #include <iostream>
-#include <string>
-#include <regex>
 #include <ctime>
 #include <cmath>
 #include "halfmod.h"
@@ -12,7 +10,7 @@
 #include <sys/vtimes.h>
 using namespace std;
 
-#define VERSION "v0.1.1"
+#define VERSION "v0.1.2"
 
 //static clock_t lastCPU, lastSysCPU, lastUserCPU;
 //static int numProcessors;
@@ -190,7 +188,7 @@ int onPluginStart(hmHandle &handle, hmGlobal *global)
     return 1;
 }
 
-int onHShellConnect(hmHandle &handle, smatch args)
+int onHShellConnect(hmHandle &handle, rens::smatch args)
 {
     static int (*getMCPID)();
     static bool loadfuncs = true;
@@ -223,7 +221,7 @@ void onPluginStop(hmHandle &handle)
     graph.clear();
 }
 
-int onWorldInit(hmHandle &handle, smatch args)
+int onWorldInit(hmHandle &handle, rens::smatch args)
 {
     hmSendRaw("scoreboard objectives remove hmStatBar\nscoreboard objectives add hmStatBar dummy \"Server Statistics\"");
     return 0;

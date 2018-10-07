@@ -1,9 +1,8 @@
 #include "halfmod.h"
 #include "str_tok.h"
-#include <vector>
 using namespace std;
 
-#define VERSION "v0.0.5"
+#define VERSION "v0.0.6"
 
 class composeVariable
 {
@@ -74,7 +73,7 @@ int compSet(hmHandle &handle, string client, string args[], int argc)
     return 0;
 }
 
-int catchDataFail(hmHandle &handle, hmHook hook, smatch args)
+int catchDataFail(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     composeVariable var(gettok(hook.name,2,"\n"),gettok(hook.name,3,"\n"));
     var.constant = true;
@@ -84,21 +83,21 @@ int catchDataFail(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int catchData(hmHandle &handle, hmHook hook, smatch args)
+int catchData(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     composeVariable var(gettok(hook.name,2,"\n"),gettok(hook.name,3,"\n"));
     var.constant = false;
     var.loaded.name = args[1].str();
     var.tags = args[2].str();
-    regex ptrn ("UUIDLeast: (-?[0-9]+?L)");
-    smatch ml;
-    if (regex_search(var.tags,ml,ptrn))
+    static rens::regex ptrn ("UUIDLeast: (-?[0-9]+?L)");
+    rens::smatch ml;
+    if (rens::regex_search(var.tags,ml,ptrn))
         var.uuidLeast = ml[1].str();
-    ptrn = "UUIDMost: (-?[0-9]+?L)";
-    if (regex_search(var.tags,ml,ptrn))
+    static rens::regex ptrn1 = "UUIDMost: (-?[0-9]+?L)";
+    if (rens::regex_search(var.tags,ml,ptrn1))
         var.uuidMost = ml[1].str();
-    ptrn = "id: (\".+?\")";
-    if (regex_search(var.tags,ml,ptrn))
+    static rens::regex ptrn2 = "id: (\".+?\")";
+    if (rens::regex_search(var.tags,ml,ptrn2))
         var.id = ml[1].str();
     else
         var.id = "player";
@@ -227,9 +226,9 @@ int composeCmd(hmHandle &handle, string client, string args[], int argc)
     composeVariable vari;
     for (int i = 2;i < argc;i++)
         com = com + " " + args[i];
-    regex ptrn ("\\$\\{([^.\\}]+)\\.?([^\\}]*)}");
-    smatch ml;
-    while (regex_search(com,ml,ptrn))
+    static rens::regex ptrn ("\\$\\{([^.\\}]+)\\.?([^\\}]*)}");
+    rens::smatch ml;
+    while (rens::regex_search(com,ml,ptrn))
     {
         var = ml[1].str();
         mem = ml[2].str();

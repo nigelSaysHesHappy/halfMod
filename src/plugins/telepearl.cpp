@@ -4,11 +4,11 @@
 #include "nbtmap.h"
 using namespace std;
 
-#define VERSION "v0.0.4"
+#define VERSION "v0.0.5"
 
 int setPearlTarget(hmHandle &handle, const hmPlayer &client, string args[], int argc);
-int uuidLookup(hmHandle &handle, hmHook hook, smatch args);
-int catchPearl(hmHandle &handle, hmHook hook, smatch args);
+int uuidLookup(hmHandle &handle, hmHook hook, rens::smatch args);
+int catchPearl(hmHandle &handle, hmHook hook, rens::smatch args);
 
 extern "C" int onPluginStart(hmHandle &handle, hmGlobal *global)
 {
@@ -23,7 +23,7 @@ extern "C" int onPluginStart(hmHandle &handle, hmGlobal *global)
     return 0;
 }
 
-extern "C" int onWorldInit(hmHandle &handle, smatch args)
+extern "C" int onWorldInit(hmHandle &handle, rens::smatch args)
 {
     hmGlobal *global = recallGlobal(NULL);
     hmSendRaw("scoreboard objectives add hmPearl minecraft.used:minecraft.ender_pearl");
@@ -128,7 +128,7 @@ int setPearlTarget(hmHandle &handle, const hmPlayer &client, string args[], int 
     return 0;
 }
 
-int uuidLookup(hmHandle &handle, hmHook hook, smatch args)
+int uuidLookup(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     handle.unhookPattern(hook.name);
     string target = args[1].str(), client = gettok(hook.name,2," ");
@@ -141,7 +141,7 @@ int uuidLookup(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int catchPearl(hmHandle &handle, hmHook hook, smatch args)
+int catchPearl(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = args[1].str(), target;
     hmPlayer *dat = hmGetPlayerPtr(client);

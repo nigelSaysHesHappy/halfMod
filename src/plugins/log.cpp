@@ -3,9 +3,10 @@
 #include <ctime>
 #include "halfmod.h"
 #include "str_tok.h"
+#include <regex>
 using namespace std;
 
-#define VERSION "v0.1.8"
+#define VERSION "v0.1.9"
 
 #define LOG_FILTER_TEXT     0
 #define LOG_FILTER_REGEX    1
@@ -165,10 +166,10 @@ int publicLog(hmHandle &handle, const hmPlayer &client, string args[], int argc)
             }
             else if (filterType == LOG_FILTER_REGEX)
             {
-                regex ptrn (filter);
+                std::regex ptrn (filter);
                 for (auto it = log.begin();it != log.end();)
                 {
-                    if (!regex_search(*it,ptrn))
+                    if (!std::regex_search(*it,ptrn))
                         log.erase(it);
                     else ++it;
                 }
@@ -194,7 +195,7 @@ int publicLog(hmHandle &handle, const hmPlayer &client, string args[], int argc)
     return 0;
 }
 
-int publicPos(hmHandle &handle, hmHook hook, smatch args)
+int publicPos(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     for (auto it = pendingLog.begin(), ite = pendingLog.end();it != ite;++it)
     {
@@ -207,7 +208,7 @@ int publicPos(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int publicDim(hmHandle &handle, hmHook hook, smatch args)
+int publicDim(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     for (auto it = pendingLog.begin(), ite = pendingLog.end();it != ite;++it)
     {
@@ -359,10 +360,10 @@ int selfLog(hmHandle &handle, const hmPlayer &client, string args[], int argc)
             }
             else if (filterType == LOG_FILTER_REGEX)
             {
-                regex ptrn (filter);
+                std::regex ptrn (filter);
                 for (auto it = log.begin();it != log.end();)
                 {
-                    if (!regex_match(*it,ptrn))
+                    if (!std::regex_search(*it,ptrn))
                         log.erase(it);
                     else ++it;
                 }
@@ -388,7 +389,7 @@ int selfLog(hmHandle &handle, const hmPlayer &client, string args[], int argc)
     return 0;
 }
 
-int selfPos(hmHandle &handle, hmHook hook, smatch args)
+int selfPos(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     for (auto it = pendingLog.begin(), ite = pendingLog.end();it != ite;++it)
     {
@@ -401,7 +402,7 @@ int selfPos(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int selfDim(hmHandle &handle, hmHook hook, smatch args)
+int selfDim(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     for (auto it = pendingLog.begin(), ite = pendingLog.end();it != ite;++it)
     {

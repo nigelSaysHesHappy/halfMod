@@ -1,14 +1,9 @@
 #include <iostream>
 #include <dlfcn.h>
-#include <string>
-#include <vector>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <regex>
 #include <fstream>
 #include <ctime>
-#include <chrono>
-#include <ratio>
 #include "str_tok.h"
 #include "halfmod.h"
 using namespace std;
@@ -201,7 +196,7 @@ int hmHandle::hookEvent(int event, int (*func)(hmHandle&))
     return events.size();
 }
 
-int hmHandle::hookEvent(int event, int (*func_with)(hmHandle&,std::smatch))
+int hmHandle::hookEvent(int event, int (*func_with)(hmHandle&,rens::smatch))
 {
     hmEvent tmpEvent;
     tmpEvent.func_with = func_with;
@@ -288,20 +283,28 @@ int hmHandle::hookPattern(const string &name, const string &pattern, const strin
     {
         tmpHook.name = name;
         tmpHook.ptrn = pattern;
-        tmpHook.rptrn = regex(pattern);
+        #ifdef HM_USE_PCRE2
+        tmpHook.rptrn = pattern;
+        #else
+        tmpHook.rptrn = rens::regex(pattern);
+        #endif
         hooks.push_back(tmpHook);
         return hooks.size();
     }
     return -1;
 }
 
-int hmHandle::hookPattern(const string &name, const string &pattern, int (*func)(hmHandle&,hmHook,std::smatch))
+int hmHandle::hookPattern(const string &name, const string &pattern, int (*func)(hmHandle&,hmHook,rens::smatch))
 {
     hmHook tmpHook;
     tmpHook.func = func;
     tmpHook.name = name;
     tmpHook.ptrn = pattern;
-    tmpHook.rptrn = regex(pattern);
+    #ifdef HM_USE_PCRE2
+    tmpHook.rptrn = pattern;
+    #else
+    tmpHook.rptrn = rens::regex(pattern);
+    #endif
     hooks.push_back(tmpHook);
     return hooks.size();
 }
@@ -777,20 +780,28 @@ int hmExtension::hookPattern(const string &name, const string &pattern, const st
     {
         tmpHook.name = name;
         tmpHook.ptrn = pattern;
+        #ifdef HM_USE_PCRE2
+        tmpHook.rptrn = pattern;
+        #else
         tmpHook.rptrn = regex(pattern);
+        #endif
         hooks.push_back(tmpHook);
         return hooks.size();
     }
     return -1;
 }
 
-int hmExtension::hookPattern(const string &name, const string &pattern, int (*func)(hmExtension&,hmExtHook,std::smatch))
+int hmExtension::hookPattern(const string &name, const string &pattern, int (*func)(hmExtension&,hmExtHook,rens::smatch))
 {
     hmExtHook tmpHook;
     tmpHook.func = func;
     tmpHook.name = name;
     tmpHook.ptrn = pattern;
+    #ifdef HM_USE_PCRE2
+    tmpHook.rptrn = pattern;
+    #else
     tmpHook.rptrn = regex(pattern);
+    #endif
     hooks.push_back(tmpHook);
     return hooks.size();
 }
@@ -948,24 +959,27 @@ bool hmConVar::getAsBool()
         return true;
     if (lower(value) == "false")
         return false;
-    regex ptrn("-?[0-9].*");
-    if (regex_match(value,ptrn))
+    /*static rens::regex ptrn("-?[0-9].*");
+    if (rens::regex_match(value,ptrn))
+        return (bool)stoi(value);*/
+    char temp = value.at(0);
+    if (((temp == '-') && (isdigit(value.at(1)))) || (isdigit(temp)))
         return (bool)stoi(value);
     return false;
 }
 
 int hmConVar::getAsInt()
 {
-    regex ptrn("-?[0-9].*");
-    if (regex_match(value,ptrn))
+    char temp = value.at(0);
+    if (((temp == '-') && (isdigit(value.at(1)))) || (isdigit(temp)))
         return stoi(value);
     return 0;
 }
 
 float hmConVar::getAsFloat()
 {
-    regex ptrn("-?[0-9].*");
-    if (regex_match(value,ptrn))
+    char temp = value.at(0);
+    if (((temp == '-') && (isdigit(value.at(1)))) || (isdigit(temp)))
         return stof(value);
     return 0.0;
 }
@@ -982,8 +996,8 @@ void hmConVar::setString(string newValue, bool wasSet)
             temp = 0.0;
         else
         {
-            regex ptrn("-?[0-9].*");
-            if (regex_match(newValue,ptrn))
+            char temp = value.at(0);
+            if (((temp == '-') && (isdigit(value.at(1)))) || (isdigit(temp)))
                 temp = stof(newValue);
             else
                 temp = 0.0;
@@ -1083,8 +1097,9 @@ void hmServerCommand(string raw, bool output)
 {
     if (raw.size() > 0)
     {
-        std::regex ptrn ("\"");
-        raw = std::regex_replace(raw,ptrn,"\\\"");
+        //std::regex ptrn ("\"");
+        //raw = std::regex_replace(raw,ptrn,"\\\"");
+        raw = strreplace(raw,"\"","\\\"");
         hmSendRaw("hs relay " + raw,output);
     }
 }
@@ -1332,8 +1347,13 @@ hmPlayer hmGetPlayerData(string client)
 
 string stripFormat(const string &str)
 {
-    regex ptrn ("(§.)");
-    return regex_replace(str,ptrn,"");
+    //regex ptrn ("(§.)");
+    //return regex_replace(str,ptrn,"");
+    std::string ret = str;
+    size_t pos;
+    while ((pos = ret.find("§")) < std::string::npos)
+        ret.erase(pos,3);
+    return ret;
 }
 
 void hmLog(string data, int logType, string logFile)
@@ -1618,7 +1638,11 @@ int hmAddConsoleFilter(const string &name, const string &ptrn, short blocking, i
 {
     hmConsoleFilter temp;
     hmGlobal *global = recallGlobal(NULL);
+    #ifdef HM_USE_PCRE2
+    temp.filter = ptrn;
+    #else
     temp.filter = regex(ptrn);
+    #endif
     temp.event = event;
     if (blocking & HM_BLOCK_OUTPUT)
         temp.blockOut = true;

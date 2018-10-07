@@ -1,5 +1,4 @@
 #include <iostream>
-#include <string>
 #include <regex>
 #include <ctime>
 #include <cmath>
@@ -9,7 +8,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.2.5"
+#define VERSION "v0.2.6"
 
 string amtTime(/*love you*/long times);
 
@@ -425,7 +424,7 @@ int admSendSelf(hmHandle &handle, const hmPlayer &client, string args[], int arg
     return 0;
 }
 
-int onPlayerJoin(hmHandle &handle, smatch args)
+int onPlayerJoin(hmHandle &handle, rens::smatch args)
 {
     mbNotify(args[1].str());
     return 0;
@@ -511,23 +510,23 @@ int sendItem(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
     return 0;
 }
 
-int sendItemCheck(hmHandle &handle, hmHook hook, smatch args)
+int sendItemCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = gettok(hook.name,1," "), tags = args[1].str(), target = args[2].str();
-    regex ptrn ("UUID(Least|Most): -?[0-9]+?L,?");
-    tags = regex_replace(tags,ptrn,"");
+    std::regex ptrn ("UUID(Least|Most): -?[0-9]+?L,?");
+    tags = std::regex_replace(tags,ptrn,"");
     ptrn = "Tags: \\[[^\\]]*\\],?";
-    tags = regex_replace(tags,ptrn,"");
+    tags = std::regex_replace(tags,ptrn,"");
     ptrn = "Motion: \\[[^\\]]*\\],?";
-    tags = regex_replace(tags,ptrn,"");
+    tags = std::regex_replace(tags,ptrn,"");
     ptrn = "Rotation: \\[[^\\]]*\\],?";
-    tags = regex_replace(tags,ptrn,"");
+    tags = std::regex_replace(tags,ptrn,"");
     ptrn = "FallDistance: [^f]*f,?";
-    tags = regex_replace(tags,ptrn,"");
+    tags = std::regex_replace(tags,ptrn,"");
     ptrn = "Dimension: -?[0-9]+?,?";
-    tags = regex_replace(tags,ptrn,"");
+    tags = std::regex_replace(tags,ptrn,"");
     ptrn = "Pos: \\[[^\\]]*\\],?";
-    tags = regex_replace(tags,ptrn,"");
+    tags = std::regex_replace(tags,ptrn,"");
     ofstream file ("./halfMod/plugins/mailbox/" + target + ".mail",ios_base::app);
     if (file.is_open())
     {
@@ -548,7 +547,7 @@ int sendItemCheck(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int sendItemFail(hmHandle &handle, hmHook hook, smatch args)
+int sendItemFail(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = gettok(hook.name,1," ");
     hmReplyToClient(client,"Unable to find an item to send! Drop an item from your inventory first!");
@@ -598,7 +597,7 @@ int sendChest(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
     return 0;
 }
 
-int sendChestIron(hmHandle &handle, hmHook hook, smatch args)
+int sendChestIron(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     int count = stoi(args[1].str());
     string client = args[2].str();
@@ -617,7 +616,7 @@ int sendChestIron(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int sendChestCheck(hmHandle &handle, hmHook hook, smatch args)
+int sendChestCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string pos = args[1].str() + " " + args[2].str() + " " + args[3].str();
     string client = gettok(hook.name,2," "), tags = args[4].str(), block = args[5].str();
@@ -655,7 +654,7 @@ int sendChestCheck(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int sendChestFail(hmHandle &handle, hmHook hook, smatch args)
+int sendChestFail(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = gettok(hook.name,2," ");
     hmReplyToClient(client,"Unable to find chest to send! Stand on top of a chest first!");
@@ -663,7 +662,7 @@ int sendChestFail(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int sendChestFailIron(hmHandle &handle, hmHook hook, smatch args)
+int sendChestFailIron(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = args[1].str();
     hmReplyToClient(client,"It costs 5 iron ingots to wrap and send a chest! Try again when you can pay the fee!");
@@ -714,7 +713,7 @@ int sendXP(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
     return 0;
 }
 
-int sendXPCheck(hmHandle &handle, hmHook hook, smatch args)
+int sendXPCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = args[1].str();
     int levels = stoi(args[2].str()), amount;
@@ -854,7 +853,7 @@ int mailOpen(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
         time_t timestamp, cTime = time(NULL);
         tm *tstamp;
         char tsBuf[17];
-        regex ptrn;// ("\\{(?>[^{}]|(?R))*\\}");
+        std::regex ptrn;// ("\\{(?>[^{}]|(?R))*\\}");
         smatch ml;
         for (auto it = box.begin(), ite = box.end();it != ite;++it)
         {
@@ -869,16 +868,16 @@ int mailOpen(hmHandle &handle, const hmPlayer &caller, string args[], int argc)
                 if ((attType > 1) && (attType != 4))
                 {
                     att = "{" + deltok(deltok(*it,1,"{"),-1,"}") + "}";
-                    //regex_search(*it,ml,ptrn);
+                    //std::regex_search(*it,ml,ptrn);
                     //att = ml[0];
                     msg = strremove(*it,att + "=");
                     if ((attType == 2) || (attType == 5))
                     {
                         ptrn = "id: \"(.+?)\"";
-                        regex_search(att,ml,ptrn);
+                        std::regex_search(att,ml,ptrn);
                         id = ml[1];
                         ptrn = "Count: ([0-9]+)b";
-                        regex_search(att,ml,ptrn);
+                        std::regex_search(att,ml,ptrn);
                         count = stoi(ml[1].str());
                     }
                 }

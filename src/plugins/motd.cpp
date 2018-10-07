@@ -5,7 +5,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION     "v0.0.7"
+#define VERSION     "v0.0.8"
 
 bool loadMotd();
 string parseMotdLine(string client, string line);
@@ -91,7 +91,7 @@ int reloadMotd(hmHandle &handle, const hmPlayer &client, string args[], int argc
     return 0;
 }
 
-int onPlayerJoin(hmHandle &handle, smatch args)
+int onPlayerJoin(hmHandle &handle, rens::smatch args)
 {
     string client = stripFormat(args[1].str());
     if (motdEnabled)
@@ -126,13 +126,13 @@ bool loadMotd()
     motdLines.clear();
     motdCmds.clear();
     ifstream file ("./halfMod/config/motd/motd.json");
-    regex comment ("\\s*#.*");
+    static rens::regex comment ("\\s*#.*");
     if (file.is_open())
     {
         useJson = true;
         while (getline(file,line))
         {
-            if (regex_match(line,comment))
+            if (rens::regex_match(line,comment))
                 continue;
             motdLines.push_back(line);
         }
@@ -146,7 +146,7 @@ bool loadMotd()
             useJson = false;
             while (getline(file,line))
             {
-                if (regex_match(line,comment))
+                if (rens::regex_match(line,comment))
                     continue;
                 motdLines.push_back(line);
             }
@@ -160,7 +160,7 @@ bool loadMotd()
     {
         while (getline(file,line))
         {
-            if (regex_match(line,comment))
+            if (rens::regex_match(line,comment))
                 continue;
             motdCmds.push_back(line);
         }

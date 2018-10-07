@@ -4,7 +4,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION "v0.1.0"
+#define VERSION "v0.1.1"
 
 struct WarpPoint
 {
@@ -27,7 +27,7 @@ void saveWarpPoints();
 int warpMenuCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc);
 int warpCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc);
 int warpAddCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc);
-int getWarpPos(hmHandle &handle, hmHook hook, smatch args);
+int getWarpPos(hmHandle &handle, hmHook hook, rens::smatch args);
 int warpRemCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc);
 int cWarpEnable(hmConVar &cvar, string oldVal, string newVal);
 int cWarpFlags(hmConVar &cvar, string oldVal, string newVal);
@@ -96,10 +96,10 @@ void loadWarpPoints()
     if (file.is_open())
     {
         string line;
-        regex ptrn ("^([^=]+)=(-?[0-9]+)=(-?[0-9]+\\.?[0-9]* -?[0-9]+\\.?[0-9]* -?[0-9]+\\.?[0-9]*)$");
-        smatch ml;
+        static rens::regex ptrn ("^([^=]+)=(-?[0-9]+)=(-?[0-9]+\\.?[0-9]* -?[0-9]+\\.?[0-9]* -?[0-9]+\\.?[0-9]*)$");
+        rens::smatch ml;
         while (getline(file,line))
-            if (regex_match(line,ml,ptrn))
+            if (rens::regex_match(line,ml,ptrn))
                 warpPoints.push_back({ml[1].str(),stoi(ml[2].str()),ml[3].str()});
         file.close();
     }
@@ -179,8 +179,8 @@ int warpAddCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc
         {
             if (argc > 5)
             {
-                regex ptrn ("-?[0-9]+|overworld|the_end|the_nether");
-                if (!regex_match(args[2],ptrn))
+                static rens::regex ptrn ("-?[0-9]+|overworld|the_end|the_nether");
+                if (!rens::regex_match(args[2],ptrn))
                 {
                     hmReplyToClient(caller,"Usage: " + args[0] + " <name> - Uses current coords.");
                     hmReplyToClient(caller,"Usage: " + args[0] + " <name> <dimension> <x> <y> <z> - Uses specified coords.");
@@ -188,10 +188,10 @@ int warpAddCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc
                     return 1;
                 }
                 int dim = parseDimension(args[2]);
-                ptrn = "^-?[0-9]+\\.?[0-9]*$";
+                static rens::regex ptrn2 = "^-?[0-9]+\\.?[0-9]*$";
                 for (int i = 3;i < 6;i++)
                 {
-                    if (!regex_match(args[i],ptrn))
+                    if (!rens::regex_match(args[i],ptrn2))
                     {
                         hmReplyToClient(caller,"Usage: " + args[0] + " <name> - Uses current coords.");
                         hmReplyToClient(caller,"Usage: " + args[0] + " <name> <dimension> <x> <y> <z> - Uses specified coords.");
@@ -214,14 +214,14 @@ int warpAddCmd(hmHandle &handle, const hmPlayer &caller, string args[], int argc
     return 0;
 }
 
-int getWarpPos(hmHandle &handle, hmHook hook, smatch args)
+int getWarpPos(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string caller = args[1].str(), tags = args[2].str(), name = deltok(hook.name,1," ");
     int dim;
     string pos = args[3].str() + " " + args[4].str() + " " + args[5].str();
-    regex ptrn ("Dimension: (-?[0-9]+)");
-    smatch ml;
-    if (regex_search(tags,ml,ptrn))
+    static rens::regex ptrn ("Dimension: (-?[0-9]+)");
+    rens::smatch ml;
+    if (rens::regex_search(tags,ml,ptrn))
     {
         dim = stoi(ml[1].str());
         warpPoints.push_back({name,dim,pos});

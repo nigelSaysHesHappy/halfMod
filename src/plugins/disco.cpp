@@ -1,9 +1,10 @@
 #include "halfmod.h"
 #include "str_tok.h"
 #include <fstream>
+#include <regex>
 using namespace std;
 
-#define VERSION "v0.2.6"
+#define VERSION "v0.2.7"
 
 bool enabled = false;
 long interval = 1000;
@@ -82,7 +83,7 @@ int updatePlayers(hmHandle &handle, string args)
     return 1;
 }
 
-int onHShellConnect(hmHandle &handle, smatch args)
+int onHShellConnect(hmHandle &handle, rens::smatch args)
 { // when connecting to halfShell on either startup or a late launch, the `list` command is automatically run.
     if (readyPlayers.size() > 0)
         readyPlayers.clear();
@@ -93,7 +94,7 @@ int onHShellConnect(hmHandle &handle, smatch args)
     return 0;
 }
 
-int listCheck(hmHandle &handle, hmHook hook, smatch args)
+int listCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     int online = stoi(args[1].str());
     if (online > 0)                                            // Hooks are processed before internal triggers and events, timers are processed at the very end of each tick
@@ -109,13 +110,13 @@ int onRehashFilter(hmHandle &handle)
     return 0;
 }
 
-int onPlayerJoin(hmHandle &handle, smatch args)
+int onPlayerJoin(hmHandle &handle, rens::smatch args)
 {
     handlePlayer(handle,hmGetPlayerIterator(args[1].str()));
     return 0;
 }
 
-int onPlayerDisconnect(hmHandle &handle, smatch args)
+int onPlayerDisconnect(hmHandle &handle, rens::smatch args)
 {
     if (enabled)
     {
@@ -192,21 +193,21 @@ int toggleDisco(hmHandle &handle, const hmPlayer &client, string args[], int arg
     return 0;
 }
 
-int getArmor(hmHandle &handle, hmHook hook, smatch args)
+int getArmor(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string inv = args[1].str(), stripClient = gettok(hook.name,2,":");
-    regex ptrn ("\\{Slot: (100b|101b|102b|103b)");
-    smatch ml;
+    std::regex ptrn ("\\{Slot: (100b|101b|102b|103b)");
+    std::smatch ml;
     hmPlayer *ptr = hmGetPlayerPtr(stripClient);
-    if (regex_search(inv,ml,ptrn))
+    if (std::regex_search(inv,ml,ptrn))
     {
         hmSendRaw("replaceitem entity " + stripClient + " armor.feet minecraft:air\nreplaceitem entity " + stripClient + " armor.legs minecraft:air\nreplaceitem entity " + stripClient + " armor.chest minecraft:air\nreplaceitem entity " + stripClient + " armor.head minecraft:air");
         inv = "{Slot: " + ml[1].str() + ml.suffix().str();
         ptrn = ", \\{Slot: -106b";
-        if (regex_search(inv,ml,ptrn))
+        if (std::regex_search(inv,ml,ptrn))
             inv = ml.prefix().str();
         ptrn = "\\{Slot: [0-9]+b, ?";
-        inv = "disco=" + regex_replace(inv,ptrn,"{");
+        inv = "disco=" + std::regex_replace(inv,ptrn,"{");
         if (hmWritePlayerDat(stripClient,inv,"disco",true) > -1)
             ptr->custom = appendtok(ptr->custom,inv,"\n");
     }

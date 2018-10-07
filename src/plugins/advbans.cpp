@@ -6,7 +6,7 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION     "v0.0.5"
+#define VERSION     "v0.0.6"
 
 #define BLINE       1
 #define KLINE       2
@@ -16,7 +16,7 @@ struct autoLine
 {
     short type;
     string ptrnstr;
-    regex pattern;
+    rens::regex pattern;
     time_t cTime;
     int minutes;
     time_t expiration;
@@ -79,7 +79,7 @@ int banTimeChange(hmConVar &cvar, string oldVal, string newVal)
     return 0;
 }*/
 
-int onPlayerAuth(hmHandle &handle, smatch args)
+int onPlayerAuth(hmHandle &handle, rens::smatch args)
 {
     string client = args[2].str();
     string uuid = args[3].str();
@@ -92,7 +92,7 @@ int onPlayerAuth(hmHandle &handle, smatch args)
             alines.erase(it);
         else
         {
-            if ((it->type == BLINE) && (regex_match(mask,it->pattern)))
+            if ((it->type == BLINE) && (rens::regex_match(mask,it->pattern)))
                 blineUser(handle,&*it,client,ip);
             ++it;
         }
@@ -100,7 +100,7 @@ int onPlayerAuth(hmHandle &handle, smatch args)
     return 0;
 }
 
-int onPlayerJoin(hmHandle &handle, smatch args)
+int onPlayerJoin(hmHandle &handle, rens::smatch args)
 {
     string client = args[1].str();
     time_t cTime = time(NULL);
@@ -112,7 +112,7 @@ int onPlayerJoin(hmHandle &handle, smatch args)
             alines.erase(it);
         else
         {
-            if ((it->type == KLINE) && (regex_match(mask,it->pattern)))
+            if ((it->type == KLINE) && (rens::regex_match(mask,it->pattern)))
                 klineUser(&*it,client);
             ++it;
         }
@@ -160,14 +160,18 @@ int blineCommand(hmHandle &handle, const hmPlayer &client, string args[], int ar
 	    }
 	    else
 	        hmLog("B-LINE: " + client.name + " added a rule for \"" + args[1] + "\" permanently.",LOG_BAN,"bans.log");
+        #ifdef HM_USE_PRCE2
+		autoLine line = { BLINE, args[1], args[1], cTime, banTime, expire, client.name, reason };
+		#else
 		autoLine line = { BLINE, args[1], regex(args[1]), cTime, banTime, expire, client.name, reason };
+		#endif
 		saveLine(line);
 		alines.push_back(line);
 		string mask;
 		for (auto it = recallGlobal(NULL)->players.begin(), ite = recallGlobal(NULL)->players.end();it != ite;++it)
 		{
 		    mask = it->second.name + ":" + it->second.uuid + "@" + it->second.ip;
-		    if (regex_search(mask,line.pattern))
+		    if (rens::regex_search(mask,line.pattern))
 		        blineUser(handle,&*alines.rbegin(),it->second.name,it->second.ip);
         }
 	}
@@ -214,14 +218,18 @@ int klineCommand(hmHandle &handle, const hmPlayer &client, string args[], int ar
 	    }
 	    else
 	        hmLog("K-LINE: " + client.name + " added a rule for \"" + args[1] + "\" permanently.",LOG_BAN,"bans.log");
+        #ifdef HM_USE_PCRE2
+        autoLine line = { KLINE, args[1], args[1], cTime, banTime, expire, client.name, reason };
+        #else
 		autoLine line = { KLINE, args[1], regex(args[1]), cTime, banTime, expire, client.name, reason };
+		#endif
 		saveLine(line);
 		alines.push_back(line);
 		string mask;
 		for (auto it = recallGlobal(NULL)->players.begin(), ite = recallGlobal(NULL)->players.end();it != ite;++it)
 		{
 		    mask = it->second.name + ":" + it->second.uuid + "@" + it->second.ip;
-		    if (regex_search(mask,line.pattern))
+		    if (rens::regex_search(mask,line.pattern))
 		        klineUser(&*alines.rbegin(),it->second.name);
         }
 	}
@@ -298,7 +306,7 @@ int ipbanExpire(hmHandle &handle, string args)
 		file<<buffer;
 		file.close();
 	}
-	if (regex_match(victim,regex("([0-9]{1,3}\\.){3}[0-9]{1,3}")))
+	if (rens::regex_match(victim,ip_pattern))
 	{
 		hmSendRaw("pardon-ip " + victim);
 		hmSendCommandFeedback("#SERVER","IP-Ban on " + victim + " has expired.");
@@ -332,15 +340,19 @@ void loadLines()
     {
         string line;
         autoLine temp;
-        regex ptrn ("([0-9]) ([^ ]+) ([0-9]+) ([0-9]+) ([0-9]+) ([^ ]+) ?(.*)");
-        smatch ml;
+        static rens::regex ptrn ("([0-9]) ([^ ]+) ([0-9]+) ([0-9]+) ([0-9]+) ([^ ]+) ?(.*)");
+        rens::smatch ml;
         while (getline(file,line))
         {
-            if (regex_match(line,ml,ptrn))
+            if (rens::regex_match(line,ml,ptrn))
             {
                 temp.type = stoi(ml[1].str());
                 temp.ptrnstr = ml[2].str();
+                #ifdef HM_USE_PCRE2
+                temp.pattern = temp.ptrnstr;
+                #else
                 temp.pattern = regex(temp.ptrnstr);
+                #endif
                 temp.cTime = stol(ml[3].str());
                 temp.minutes = stoi(ml[4].str());
                 temp.expiration = stol(ml[5].str());

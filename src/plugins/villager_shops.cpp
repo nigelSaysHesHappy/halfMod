@@ -4,7 +4,7 @@
 #include "nbtmap.h"
 using namespace std;
 
-#define VERSION		"v0.2.5"
+#define VERSION		"v0.2.6"
 
 struct Trade
 {
@@ -46,15 +46,15 @@ int cDisChange(hmConVar &cvar, string oldVar, string newVar);
 int newShopCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc);
 int restockShopCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc);
 
-int shopGetCoords(hmHandle &handle, hmHook hook, smatch args);
-int diamondCheck(hmHandle &handle, hmHook hook, smatch args);
-int failDiamondCheck(hmHandle &handle, hmHook hook, smatch args);
-int chestCheck(hmHandle &handle, hmHook hook, smatch args);
-int failChestCheck(hmHandle &handle, hmHook hook, smatch args);
-int findVillager(hmHandle &handle, hmHook hook, smatch args);
-int failFindVillager(hmHandle &handle, hmHook hook, smatch args);
-int stockChestCheck(hmHandle &handle, hmHook hook, smatch args);
-int failStockChestCheck(hmHandle &handle, hmHook hook, smatch args);
+int shopGetCoords(hmHandle &handle, hmHook hook, rens::smatch args);
+int diamondCheck(hmHandle &handle, hmHook hook, rens::smatch args);
+int failDiamondCheck(hmHandle &handle, hmHook hook, rens::smatch args);
+int chestCheck(hmHandle &handle, hmHook hook, rens::smatch args);
+int failChestCheck(hmHandle &handle, hmHook hook, rens::smatch args);
+int findVillager(hmHandle &handle, hmHook hook, rens::smatch args);
+int failFindVillager(hmHandle &handle, hmHook hook, rens::smatch args);
+int stockChestCheck(hmHandle &handle, hmHook hook, rens::smatch args);
+int failStockChestCheck(hmHandle &handle, hmHook hook, rens::smatch args);
 
 vector<Trade> parseChestNBT(NBTList &items);
 vector<TradeStock> parseTradeNBT(string starting, string recipes);
@@ -152,7 +152,7 @@ int newShopCmd(hmHandle &handle, const hmPlayer &client, string args[], int argc
     return 0;
 }
 
-int diamondCheck(hmHandle &handle, hmHook hook, smatch args)
+int diamondCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     handle.unhookPattern(hook.name);
     int count = stoi(args[1].str());
@@ -168,7 +168,7 @@ int diamondCheck(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int failDiamondCheck(hmHandle &handle, hmHook hook, smatch args)
+int failDiamondCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = gettok(hook.name,2," ");
     hmReplyToClient(client,"You need " + gettok(hook.name,3," ") + " diamonds to create your requested villager. A villager without noai and invulnerable is always free!");
@@ -176,7 +176,7 @@ int failDiamondCheck(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int shopGetCoords(hmHandle &handle, hmHook hook, smatch args)
+int shopGetCoords(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     handle.unhookPattern(hook.name);
     string client = args[1].str();//, dimension = getDimension(stoi(args[2].str()));
@@ -208,7 +208,7 @@ int shopGetCoords(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int chestCheck(hmHandle &handle, hmHook hook, smatch args)
+int chestCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     handle.unhookPattern(hook.name);
     string pos = args[1].str() + " " + args[2].str() + " " + args[3].str();
@@ -250,7 +250,7 @@ int chestCheck(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int failChestCheck(hmHandle &handle, hmHook hook, smatch args)
+int failChestCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = gettok(hook.name,2," ");
     hmReplyToClient(client,"Unable to find chest! Stand on top of a chest first!");
@@ -265,7 +265,7 @@ int restockShopCmd(hmHandle &handle, const hmPlayer &client, string args[], int 
     return 0;
 }
 
-int findVillager(hmHandle &handle, hmHook hook, smatch args)
+int findVillager(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     handle.unhookPattern(hook.name);
     string client = gettok(hook.name,2," "), dimension = gettok(gettok(hook.name,1,"\n"),3," "), pos = gettok(hook.name,2,"\n");
@@ -278,7 +278,7 @@ int findVillager(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int failFindVillager(hmHandle &handle, hmHook hook, smatch args)
+int failFindVillager(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = gettok(hook.name,2," ");
     hmReplyToClient(client,"Unable to locate your villager :(");
@@ -286,7 +286,7 @@ int failFindVillager(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int stockChestCheck(hmHandle &handle, hmHook hook, smatch args)
+int stockChestCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     handle.unhookPattern(hook.name);
     string pos = args[1].str() + " " + args[2].str() + " " + args[3].str(), dimension = gettok(hook.name,6,"\n");
@@ -344,7 +344,7 @@ int stockChestCheck(hmHandle &handle, hmHook hook, smatch args)
     return 1;
 }
 
-int failStockChestCheck(hmHandle &handle, hmHook hook, smatch args)
+int failStockChestCheck(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     string client = gettok(hook.name,2,"\n"), dimension = gettok(hook.name,6,"\n"), pos = gettok(hook.name,7,"\n");
     hmReplyToClient(client,"Unable to find chest, nothing restocked! Here are your payments from " + gettok(hook.name,3,"\n"));

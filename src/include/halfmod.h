@@ -1,9 +1,17 @@
 #ifndef halfmod
 #define halfmod
 
+#define HM_USE_PCRE2
+#ifdef HM_USE_PCRE2
+#include "pcre2_halfwrap.h"
+#define rens pcre2w
+#else
+#include <regex>
+#define rens std
+#endif
+
 #include <vector>
 #include <unordered_map>
-#include <regex>
 #include <string>
 #include <chrono>
 #include <ratio>
@@ -182,24 +190,24 @@ struct hmCommand
 struct hmHook
 {
     std::string name;
-    std::regex rptrn;
+    rens::regex rptrn;
     std::string ptrn;
-    int (*func)(hmHandle&,hmHook,std::smatch);
+    int (*func)(hmHandle&,hmHook,rens::smatch);
 };
 
 struct hmExtHook
 {
     std::string name;
-    std::regex rptrn;
+    rens::regex rptrn;
     std::string ptrn;
-    int (*func)(hmExtension&,hmExtHook,std::smatch);
+    int (*func)(hmExtension&,hmExtHook,rens::smatch);
 };
 
 struct hmEvent
 {
     int event;
     int (*func)(hmHandle&);
-    int (*func_with)(hmHandle&,std::smatch);
+    int (*func_with)(hmHandle&,rens::smatch);
 };
 
 struct hmAdmin
@@ -230,7 +238,7 @@ struct hmExtTimer
 
 struct hmConsoleFilter
 {
-	std::regex filter;	// pattern to match
+	rens::regex filter;	// pattern to match
 	bool blockOut = false;
 	bool blockEvent = false;
 	bool blockHook = false;
@@ -330,7 +338,7 @@ class hmHandle
         // returns total number of events hooked, -1 on error
         int hookEvent(int event, const std::string &function, bool withSmatch = true);
         int hookEvent(int event, int (*func)(hmHandle&));
-        int hookEvent(int event, int (*func_with)(hmHandle&,std::smatch));
+        int hookEvent(int event, int (*func_with)(hmHandle&,rens::smatch));
         
         // register an admin command
         // returns total number of commands registered by plugin, -1 on error
@@ -349,7 +357,7 @@ class hmHandle
         // hook a regex pattern to a function name
         // returns total number of hooks registered by plugin, -1 on error
         int hookPattern(const std::string &name, const std::string &pattern, const std::string &function);
-        int hookPattern(const std::string &name, const std::string &pattern, int (*func)(hmHandle&,hmHook,std::smatch));
+        int hookPattern(const std::string &name, const std::string &pattern, int (*func)(hmHandle&,hmHook,rens::smatch));
         
         // unhook all patterns with 'name'
         // returns total number of hooks registered by plugin
@@ -434,7 +442,7 @@ class hmExtension
         void *getFunc(const std::string &func);
         std::vector<hmExtHook> hooks;
         int hookPattern(const std::string &name, const std::string &pattern, const std::string &function);
-        int hookPattern(const std::string &name, const std::string &pattern, int (*func)(hmExtension&,hmExtHook,std::smatch));
+        int hookPattern(const std::string &name, const std::string &pattern, int (*func)(hmExtension&,hmExtHook,rens::smatch));
         int unhookPattern(const std::string &name);
         hmConVar* createConVar(const std::string &name, const std::string &defaultValue, const std::string &description = "", short flags = 0, bool hasMin = false, float min = 0.0, bool hasMax = false, float max = 0.0);
         int hookConVarChange(hmConVar *cvar, const std::string &function);

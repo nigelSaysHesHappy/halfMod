@@ -35,7 +35,7 @@ int hashConsoleFilters(vector<hmConsoleFilter> &filters, vector<hmHandle> &plugi
 int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread);
 int processFunc(hmHandle &plugin,int retVal);
 int processEvent(vector<hmHandle> &plugins, int event);
-int processEvent(vector<hmHandle> &plugins, int event, smatch thread);
+int processEvent(vector<hmHandle> &plugins, int event, rens::smatch thread);
 int processCmd(hmGlobal &global, vector<hmHandle> &plugins, const string &cmd, const string &caller, const string &args = "", bool visible = true, bool console = false);
 int processHooks(vector<hmHandle> &plugins, const string &thread);
 timeval processTimers(vector<hmHandle> &plugins);

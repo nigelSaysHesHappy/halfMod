@@ -1,6 +1,4 @@
 #include <iostream>
-#include <string>
-#include <regex>
 #include <fstream>
 #include <cstdlib>
 #include <ctime>
@@ -9,12 +7,14 @@
 #include "str_tok.h"
 using namespace std;
 
-#define VERSION		"v0.1.1"
+#define VERSION		"v0.1.2"
 
 int defBanTime = 0;
 
 static void (*addConfigButtonCallback)(string,string,int,std::string (*)(std::string,int,std::string,std::string));
 static void (*addConfigButtonCmd)(string,string,int,std::string);
+
+static rens::regex ip_pattern ("([0-9]{1,3}\\.){3}[0-9]{1,3}");
 
 string kickButton(string name, int socket, string ip, string client)
 {
@@ -95,7 +95,7 @@ int banTimeChange(hmConVar &cvar, string oldVal, string newVal)
     return 0;
 }
 
-int onWorldInit(hmHandle &handle, smatch args)
+int onWorldInit(hmHandle &handle, rens::smatch args)
 {
 	mkdirIf("./halfMod/plugins/admincmds/");
 	time_t cTime = time(NULL);
@@ -128,7 +128,7 @@ int onWorldInit(hmHandle &handle, smatch args)
 				}
 				else
 				{
-					if (regex_match(victim,regex("([0-9]{1,3}\\.){3}[0-9]{1,3}")))
+					if (rens::regex_match(victim,ip_pattern))
 					{
 						hmSendRaw("pardon-ip " + victim);
 						hmLog("Expired ip-ban: " + victim,LOG_BAN,"bans.log");
@@ -290,7 +290,7 @@ int banIP(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 		time_t cTime = time(NULL);
 		if (banTime)
 			oFile.open("./halfMod/plugins/admincmds/expirations.txt",ios_base::app);
-		if (regex_match(args[1],regex("([0-9]{1,3}\\.){3}[0-9]{1,3}")))
+		if (rens::regex_match(args[1],ip_pattern))
 		{
 			hmSendRaw("ban-ip " + args[1] + " " + reason);
 			if (banTime == 0)
@@ -361,7 +361,7 @@ int unbanIP(hmHandle &handle, const hmPlayer &client, string args[], int argc)
 		hmReplyToClient(client,"Usage: " + args[0] + " <target|IP>");
 	else
 	{
-		if (regex_match(args[1],regex("([0-9]{1,3}\\.){3}[0-9]{1,3}")))
+		if (rens::regex_match(args[1],ip_pattern))
 		{
 			hmSendRaw("pardon-ip " + args[1]);
 			hmSendCommandFeedback(client,"Lifted the ban on ip " + args[1]);
@@ -457,7 +457,7 @@ int ipbanExpire(hmHandle &handle, string args)
 		file<<buffer;
 		file.close();
 	}
-	if (regex_match(victim,regex("([0-9]{1,3}\\.){3}[0-9]{1,3}")))
+	if (rens::regex_match(victim,ip_pattern))
 	{
 		hmSendRaw("pardon-ip " + victim);
 		hmSendCommandFeedback("#SERVER","IP-Ban on " + victim + " has expired.");
@@ -555,7 +555,7 @@ int changeWeather(hmHandle &handle, const hmPlayer &client, string args[], int a
     return 0;
 }
 
-int getGamerule(hmHandle &handle, hmHook hook, smatch args)
+int getGamerule(hmHandle &handle, hmHook hook, rens::smatch args)
 {
     hmReplyToClient(hook.name,"Gamerule '" + args[1].str() + "' = '" + args[2].str() + "'.");
     handle.unhookPattern(hook.name);
