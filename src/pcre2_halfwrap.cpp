@@ -12,7 +12,6 @@ pcre2w::regex& pcre2w::regex::operator= (const char *re) { compile((PCRE2_SPTR)r
 pcre2w::regex& pcre2w::regex::operator= (const unsigned char *re) { compile(re); return *this; }
 pcre2w::regex& pcre2w::regex::operator= (std::string re) { compile((PCRE2_SPTR)re.c_str()); return *this; }
 pcre2w::regex& pcre2w::regex::operator= (const regex &other) { code = pcre2_code_copy(other.code); pcre2_jit_compile(code,PCRE2_JIT_COMPLETE); return *this; }
-pcre2w::smatch_data::smatch_data(const std::string &st, size_t p) { s = st; pos = p; }
 int pcre2w::regex::compile(PCRE2_SPTR re)
 {
     if (code != nullptr)
@@ -23,6 +22,9 @@ int pcre2w::regex::compile(PCRE2_SPTR re)
     pcre2_jit_compile(code,PCRE2_JIT_COMPLETE);
     return errorcode;
 }
+pcre2w::smatch_data::smatch_data(const std::string &st, size_t p) { s = st; pos = p; }
+pcre2w::smatch_data::smatch_data(const smatch_data &other) { s = other.s; pos = other.pos; }
+pcre2w::smatch_data& pcre2w::smatch_data::operator= (const smatch_data &other) { s = other.s; pos = other.pos; return *this; }
 std::string pcre2w::smatch_data::str() { return s; }
 size_t pcre2w::smatch_data::position() { return pos; }
 size_t pcre2w::smatch_data::length() { return s.size(); }
@@ -36,6 +38,25 @@ std::vector<pcre2w::smatch_data>::const_iterator pcre2w::smatch::cbegin() { retu
 std::vector<pcre2w::smatch_data>::const_iterator pcre2w::smatch::cend() { return capture.cend(); }
 std::vector<pcre2w::smatch_data>::const_reverse_iterator pcre2w::smatch::crbegin() { return capture.crbegin(); }
 std::vector<pcre2w::smatch_data>::const_reverse_iterator pcre2w::smatch::crend() { return capture.crend(); }
+pcre2w::smatch::smatch(const smatch &other)
+{
+    capture.clear();
+    capture.reserve(other.capture.size());
+    prefix = other.prefix;
+    suffix = other.suffix;
+    for (auto it = other.capture.begin(), ite = other.capture.end();it != ite;++it)
+        capture.push_back(*it);
+}
+pcre2w::smatch& pcre2w::smatch::operator= (const smatch &other)
+{
+    capture.clear();
+    capture.reserve(other.capture.size());
+    prefix = other.prefix;
+    suffix = other.suffix;
+    for (auto it = other.capture.begin(), ite = other.capture.end();it != ite;++it)
+        capture.push_back(*it);
+    return *this;
+}
 void pcre2w::smatch::populate(PCRE2_SPTR subject, pcre2_match_data *ml, int rc) 
 {
     clear();

@@ -1,7 +1,8 @@
 #ifndef halfmod
 #define halfmod
 
-#define HM_USE_PCRE2
+#include ".hmAPIBuild.h" // Defines HM_USE_PCRE2 if './src/usePCRE2.sh' enabled it.
+
 #ifdef HM_USE_PCRE2
 #include "pcre2_halfwrap.h"
 #define rens pcre2w
@@ -15,7 +16,6 @@
 #include <string>
 #include <chrono>
 #include <ratio>
-#include ".hmAPIBuild.h"
 
 #define HM_NON_BLOCK        0
 #define HM_BLOCK_OUTPUT     1

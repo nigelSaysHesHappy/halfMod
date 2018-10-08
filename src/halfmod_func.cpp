@@ -149,11 +149,7 @@ void loadAllPlugins(hmGlobal &info, vector<hmHandle> &plugins)
     plugins.reserve(foo);
     std::cout<<"Loading "<<foo<<" plugins . . ."<<std::endl;
     for (auto it = paths.begin(), ite = paths.end();it != ite;++it)
-    {
-        std::cout<<"Loading plugin \""<<*it<<"\" . . ."<<std::endl;
         loadPlugin(info,plugins,*it);
-    }
-    std::cout<<"plugins loaded."<<std::endl;
     processEvent(plugins,HM_ONPLUGINSLOADED);
 }
 
@@ -170,23 +166,35 @@ void loadAssets(hmGlobal &info, vector<hmHandle> &plugins, vector<hmConsoleFilte
 
 bool receiveHandshake(int sockfd, hmGlobal &info, vector<hmHandle> &plugins)
 {
-    static rens::regex hsPtrn ("^([^\t]*)\t([^\t]*)\t(.*)$");
-    rens::smatch hsMl;
     string line;
-    if ((readSock(sockfd,line) > 1) && (rens::regex_search(line,hsMl,hsPtrn)))
+    if (readSock(sockfd,line) > 1)
     {
-        info.hsVer = hsMl[1].str();
-        if (hsMl[2].length() > 0)
+        size_t pos[2];
+        if ((pos[0] = line.find('\t')) != std::string::npos)
         {
-            info.mcVer = hsMl[2].str();
-            if (hsMl[3].length() > 0)
-                info.world = hsMl[3].str();
+            if ((pos[1] = line.find('\t',pos[0]+1)) != std::string::npos)
+            {
+                info.hsVer = line.substr(0,pos[0]);
+                if (pos[1]-pos[0] > 1)
+                {
+                    info.mcVer = line.substr(pos[0]+1,pos[1]);
+                    if (line.size() > pos[1])
+                        info.world = line.substr(pos[1]+1);
+                }
+                cout<<"Link established with "<<info.hsVer<<endl;
+                rens::smatch hsMl;
+                #ifdef HM_USE_PCRE2
+                hsMl.capture.push_back({line,0});
+                hsMl.capture.push_back({info.hsVer,0});
+                hsMl.capture.push_back({info.mcVer,pos[0]});
+                hsMl.capture.push_back({info.world,pos[1]});
+                #endif
+                processEvent(plugins,HM_ONHSCONNECT,hsMl);
+                return true;
+            }
         }
-        cout<<"Link established with "<<info.hsVer<<endl;
-        processEvent(plugins,HM_ONHSCONNECT,hsMl);
-        return true;
     }
-    cerr<<"Invalid handshake received. Disconnecting . . ."<<endl;
+    cerr<<"Invalid handshake received. \""<<line<<"\" Disconnecting . . ."<<endl;
     return false;
 }
 
@@ -263,6 +271,7 @@ int resetSocketSelect(vector<hmHandle> &plugins, fd_set &readfds, int sockfd)
 
 int loadPlugin(hmGlobal &info, vector<hmHandle> &plugins, const string &path)
 {
+    std::cout<<"[HM] Loading plugin \""<<path<<"\" . . ."<<std::endl;
     for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
     {
         if (it->getPath() == path)
@@ -287,7 +296,7 @@ int loadPlugin(hmGlobal &info, vector<hmHandle> &plugins, const string &path)
         else
         {
             plugins.push_back(temp);
-            cout<<"[HM] Plugin \""<<plugins[plugins.size()-1].getInfo().name<<"\" loaded . . .\n";
+            //cout<<"[HM] Plugin \""<<plugins[plugins.size()-1].getInfo().name<<"\" loaded . . .\n";
         }
     }
     return 0;
@@ -295,6 +304,7 @@ int loadPlugin(hmGlobal &info, vector<hmHandle> &plugins, const string &path)
 
 int loadExtension(hmGlobal &info, const string &path)
 {
+    std::cout<<"[HM] Loading extension \""<<path<<"\" . . ."<<std::endl;
     for (auto it = info.extensions.begin(), ite = info.extensions.end();it != ite;++it)
     {
         if (it->getPath() == path)
@@ -319,7 +329,7 @@ int loadExtension(hmGlobal &info, const string &path)
         else
         {
             info.extensions.push_back(temp);
-            cout<<"[HM] Extension \""<<info.extensions[info.extensions.size()-1].getInfo().name<<"\" loaded . . .\n";
+            //cout<<"[HM] Extension \""<<info.extensions[info.extensions.size()-1].getInfo().name<<"\" loaded . . .\n";
         }
     }
     return 0;
@@ -392,7 +402,7 @@ size_t findPlugins(const char *dir, vector<string> &paths)
 int processThread(hmGlobal &info, vector<hmHandle> &plugins, string &thread)
 {
     #ifdef HM_USE_PCRE2
-    static const rens::regex ptrns[REGPTRN_MAX] =
+    static rens::regex ptrns[REGPTRN_MAX] =
     {
         ".*",
         "\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\] (.+)",
@@ -677,8 +687,12 @@ int processEvent(vector<hmHandle> &plugins, int event)
     for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
     {
         if (it->findEvent(event,evnt))
+        {
             if ((*evnt.func)(*it))
+            {
                 return 1;
+            }
+        }
     }
     return 0;
 }
@@ -689,8 +703,12 @@ int processEvent(vector<hmHandle> &plugins, int event, rens::smatch thread)
     for (auto it = plugins.begin(), ite = plugins.end();it != ite;++it)
     {
         if (it->findEvent(event,evnt))
+        {
             if ((*evnt.func_with)(*it,thread))
+            {
                 return 1;
+            }
+        }
     }
     return 0;
 }
@@ -915,7 +933,7 @@ int hashAdmins(hmGlobal &info, const string &path)
             line = strremove(strremove(line,"\t")," ");
             //if (regex_match(line,comment))
             //    continue;
-            if (line.at(0) == '#')
+            if ((line.size() < 1) || (line.at(0) == '#'))
                 continue;
             //line = regex_replace(line,comment,"");
             size_t p = line.find('#');

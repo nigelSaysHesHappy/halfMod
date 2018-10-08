@@ -1,4 +1,10 @@
-Commit: Current
+Commit: Current  
+
+Added better functionality to enable/disable the pcre2 library using the `./src/usePCRE2.sh` file.  
+Addd an internal check to halfMod that will print an error when using pcre2 if pcre2 was not compiled with jit-compiling enabled.  
+Added copy constructors and assignment overloads for all classes to `pcre2_halfwrap.h`.  
+
+Commit: dc675bc  
 
 Added a new library: `pcre2_halfwrap.h`
 + This library is disabled by default. To use this library instead of `std::regex` for all internal halfMod and API workings edit the `./src/usePCRE2.sh` file and change the value to `true`.
@@ -10,9 +16,9 @@ Added a new library: `pcre2_halfwrap.h`
 + + + `rens::smatch`
 + + + `rens::regex_search`
 + + + `rens::regex_match`
-+ All functionality should still (hopefully) be preserved.
++ All functionality should still (hopefully) be preserved.  
 
-Replaced all calls to clang in the compile scripts to `clang++` instead of `/usr/bin/clang++-3.8`.
+Replaced all calls to clang in the compile scripts to `clang++` instead of `/usr/bin/clang++-3.8`.  
 
 Commit: bf8a0ba  
 

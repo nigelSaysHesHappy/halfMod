@@ -10,6 +10,14 @@ using namespace std;
 
 int main(int argc, char *argv[])
 {
+    #ifdef HM_USE_PCRE2
+    if (!rens::regex_match("jit test",".*"))
+    {
+        std::cerr<<"ERROR: RECOMPILE PCRE2 WITH `./configure --enable-jit`"<<std::endl;
+        return 101;
+    }
+    #endif
+    
     hmGlobal serverInfo;
     recallGlobal(&serverInfo);
     serverInfo.hmVer = VERSION;

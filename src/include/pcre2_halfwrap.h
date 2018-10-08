@@ -37,12 +37,13 @@ namespace pcre2w
     
     class smatch_data
     {
-        private:
-            std::string s;
-            size_t pos;
         public:
             smatch_data() {}
             smatch_data(const std::string &st, size_t p);
+            smatch_data(const smatch_data &other);
+            smatch_data& operator= (const smatch_data &other);
+            std::string s;
+            size_t pos;
             std::string str();
             size_t position();
             size_t length();
@@ -54,6 +55,8 @@ namespace pcre2w
     {
         public:
             smatch() {}
+            smatch(const smatch &other);
+            smatch& operator= (const smatch &other);
             smatch_data prefix, suffix;
             std::vector<smatch_data> capture;
             std::vector<smatch_data>::iterator begin();
