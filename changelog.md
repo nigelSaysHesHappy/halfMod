@@ -1,5 +1,20 @@
 Commit: Current  
 
+Additions to `pcre2_halfwrap.h`:
++ Added `compare` member function to `match_data`
++ + `std::regex` equivalent: `std::match_result::compare`
++ + Essentially the same as `ml[1].str().compare(ml[2].str())`
++ + Works with `std::string`, `const char*`, `const unsigned char*`, or `match_data`
++ Added `max_size` member function to `smatch`
++ Added `swap` member function to `smatch`
++ + Same as `std::smatch::swap`
++ Added basic `regex_replace`
++ + Works just like the first instantiation of `std::regex_replace`
++ + + Except the options are defined by `pcre2`, not compatible with `std::regex`'s options as of yet.
++ Aside from the other missing `regex_replace` versions, the only thing missing from full `std::regex` compatibility is `std::match_results::format`. Probably won't ever add this since it is relatively useless.  
+
+Commit: eaeab6a  
+
 Added better functionality to enable/disable the pcre2 library using the `./src/usePCRE2.sh` file.  
 Addd an internal check to halfMod that will print an error when using pcre2 if pcre2 was not compiled with jit-compiling enabled.  
 Added copy constructors and assignment overloads for all classes to `pcre2_halfwrap.h`.  

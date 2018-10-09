@@ -48,6 +48,10 @@ namespace pcre2w
             size_t position();
             size_t length();
             void clear();
+            int compare(const std::string &str);
+            int compare(const smatch_data &md);
+            int compare(const char *str);
+            int compare(const unsigned char *str);
             std::string operator() ();
     };
             
@@ -71,6 +75,9 @@ namespace pcre2w
             smatch_data& operator[] (size_t n);
             size_t size();
             void clear();
+            bool empty();
+            size_t max_size();
+            void swap(smatch &sm);
     };
     
     int regex_search(const unsigned char *subject, smatch &results, const regex &re, bool with = true);
@@ -85,6 +92,14 @@ namespace pcre2w
     int regex_match(const unsigned char *subject, const regex &re);
     int regex_match(const std::string &subject, const regex &re);
     int regex_match(const char *subject, const regex &re);
+    std::string regex_replace(const std::string &subject, const regex &re, const std::string &format, uint32_t options = PCRE2_SUBSTITUTE_GLOBAL);
+    std::string regex_replace(const unsigned char *subject, const regex &re, const unsigned char *format, uint32_t options = PCRE2_SUBSTITUTE_GLOBAL);
+    std::string regex_replace(const unsigned char *subject, const regex &re, const std::string &format, uint32_t options = PCRE2_SUBSTITUTE_GLOBAL);
+    std::string regex_replace(const std::string &subject, const regex &re, const unsigned char *format, uint32_t options = PCRE2_SUBSTITUTE_GLOBAL);
+    std::string regex_replace(const char *subject, const regex &re, const char *format, uint32_t options = PCRE2_SUBSTITUTE_GLOBAL);
+    std::string regex_replace(const char *subject, const regex &re, const std::string &format, uint32_t options = PCRE2_SUBSTITUTE_GLOBAL);
+    std::string regex_replace(const std::string &subject, const regex &re, const char *format, uint32_t options = PCRE2_SUBSTITUTE_GLOBAL);
+    
 }
 
 #endif

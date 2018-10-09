@@ -29,6 +29,10 @@ std::string pcre2w::smatch_data::str() { return s; }
 size_t pcre2w::smatch_data::position() { return pos; }
 size_t pcre2w::smatch_data::length() { return s.size(); }
 void pcre2w::smatch_data::clear() { s.clear(); pos = 0; }
+int pcre2w::smatch_data::compare(const std::string &str) { return s.compare(str); }
+int pcre2w::smatch_data::compare(const pcre2w::smatch_data &md) { return s.compare(md.s); }
+int pcre2w::smatch_data::compare(const char *str) { return s.compare(str); }
+int pcre2w::smatch_data::compare(const unsigned char *str) { return s.compare((const char*)str); }
 std::string pcre2w::smatch_data::operator() () { return s; }
 std::vector<pcre2w::smatch_data>::iterator pcre2w::smatch::begin() { return capture.begin(); }
 std::vector<pcre2w::smatch_data>::iterator pcre2w::smatch::end() { return capture.end(); }
@@ -74,15 +78,23 @@ void pcre2w::smatch::populate(PCRE2_SPTR subject, pcre2_match_data *ml, int rc)
             start = ovector[2*i];
             length = ovector[2*i+1] - ovector[2*i];
             capture.push_back({sub.substr(start,length),start});
-            //printf("%2d: %.*s\n", i, (int)substring_length, (char *)substring_start);
         }
-        if (start+length < sub.size())
-            suffix = { sub.substr(start+length), start+length };
+        offset = ovector[1];
+        if (offset < sub.size())
+            suffix = { sub.substr(offset,std::string::npos), offset };
     }
 }
 pcre2w::smatch_data& pcre2w::smatch::operator[] (size_t n) { return capture.at(n); }
 size_t pcre2w::smatch::size() { return capture.size(); }
 void pcre2w::smatch::clear() { prefix.clear(); suffix.clear(); capture.clear(); }
+bool pcre2w::smatch::empty() { return (bool)capture.size(); }
+size_t pcre2w::smatch::max_size() { return capture.max_size(); }
+void pcre2w::smatch::swap(pcre2w::smatch &sm)
+{
+    pcre2w::smatch temp = sm;
+    sm = *this;
+    *this = temp;
+}
 
 int pcre2w::regex_search(const unsigned char *subject, pcre2w::smatch &results, const pcre2w::regex &re, bool with)
 {
@@ -121,7 +133,7 @@ int pcre2w::regex_search(const char *subject, const pcre2w::regex &re)
 int pcre2w::regex_match(const unsigned char *subject, pcre2w::smatch &results, const pcre2w::regex &re)
 {
     int rc = pcre2w::regex_search(subject,results,re);
-    if (results.prefix.length()+results.suffix.length() > 0)
+    if ((rc > 0) && (results[0].length() != strlen((const char*)subject)))
     {
         rc = 0;
         results.clear();
@@ -150,4 +162,47 @@ int pcre2w::regex_match(const char *subject, const pcre2w::regex &re)
 {
     return pcre2w::regex_match((const unsigned char*)subject,re);
 }
+
+std::string pcre2w::regex_replace(const std::string &subject, const pcre2w::regex &re, const std::string &format, uint32_t options)
+{
+    size_t subsize = subject.size(), fsize = format.size(), outsize = subsize*3+fsize;
+    if (outsize < subsize+fsize)
+        outsize = -1;
+    PCRE2_UCHAR *outbuf = new PCRE2_UCHAR[outsize];
+    int rc = pcre2_substitute(re.code,(const unsigned char*)subject.c_str(),subsize,0,options,NULL,NULL,(const unsigned char*)format.c_str(),fsize,outbuf,&outsize);
+    std::string out;
+    if (outsize > 0)
+    {
+        out = (char*)outbuf;
+        if (out.size() > (size_t)outsize)
+            out.erase((size_t)outsize);
+    }
+    delete[] outbuf;
+    return out;
+}
+std::string pcre2w::regex_replace(const unsigned char *subject, const pcre2w::regex &re, const unsigned char *format, uint32_t options)
+{
+    return pcre2w::regex_replace(std::string((const char*)subject),re,std::string((const char*)format),options);
+}
+std::string pcre2w::regex_replace(const unsigned char *subject, const pcre2w::regex &re, const std::string &format, uint32_t options)
+{
+    return pcre2w::regex_replace(std::string((const char*)subject),re,format,options);
+}
+std::string pcre2w::regex_replace(const std::string &subject, const pcre2w::regex &re, const unsigned char *format, uint32_t options)
+{
+    return pcre2w::regex_replace(subject,re,std::string((const char*)format),options);
+}
+std::string pcre2w::regex_replace(const char *subject, const pcre2w::regex &re, const char *format, uint32_t options)
+{
+    return pcre2w::regex_replace(std::string(subject),re,std::string(format),options);
+}
+std::string pcre2w::regex_replace(const char *subject, const pcre2w::regex &re, const std::string &format, uint32_t options)
+{
+    return pcre2w::regex_replace(std::string(subject),re,format,options);
+}
+std::string pcre2w::regex_replace(const std::string &subject, const pcre2w::regex &re, const char *format, uint32_t options)
+{
+    return pcre2w::regex_replace(subject,re,std::string(format),options);
+}
+
 
